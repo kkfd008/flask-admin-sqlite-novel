@@ -300,3 +300,30 @@ class TestImporter:
             assert novel.author == '测试作者'
             assert novel.category_id == cat_id
             assert novel.chapter_count == 2
+
+    def test_re_split_handles_none_elements(self, app):
+        """re.split 返回 None 元素时不应抛出 AttributeError"""
+        import re
+        # 模拟默认规则 pattern 被 step2 组合后 step4 再包裹的情况
+        default_pattern = '^第[零一二三四五六七八九十百千万\\d]+章.*$'
+        combined = f'(?:{default_pattern})'
+        wrapped = f'({combined})'
+
+        # 各种可能的内容
+        contents = [
+            '第1章 开始\n这是内容\n第2章 继续\n更多',
+            '第1章\n内容',
+            '\n第1章 开始\n内容',
+            '第1章 开始\r\n这是内容\r\n第2章 继续\r\n更多',  # CRLF
+            '第1章 开始\n第2章 继续',  # 连续章节
+            '前言\n第1章 开始\n内容',  # 前导文本
+        ]
+
+        for content in contents:
+            parts = re.split(wrapped, content, flags=re.MULTILINE)
+            for i, p in enumerate(parts):
+                if p is None:
+                    # re.split 返回了 None — 这是 bug 的根源
+                    pytest.fail(f're.split returned None at index {i} for content: {content!r}')
+                # 验证 .strip() 不会报错
+                p.strip()
