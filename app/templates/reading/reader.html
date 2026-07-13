@@ -323,7 +323,8 @@
   /* Full-width content, no card */
   .reader-content {
     padding: 16px;
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    /* 底部留出足够空间：底部导航栏高度(52px) + 安全区域 + 额外缓冲(16px) */
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
   }
 
   /* Fixed bottom nav */
@@ -509,7 +510,7 @@
   {% endif %}
 
   <div class="reader-nav-center">
-    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="reader-nav-dir">目录</a>
+    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="reader-nav-dir">返回目录</a>
   </div>
 
   {% if next_chapter %}
