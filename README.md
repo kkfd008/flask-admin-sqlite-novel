@@ -8,21 +8,23 @@
 - **小说分类管理**：创建、编辑、删除分类，支持分类筛选
 - **小说标签管理**：多对多标签关联，每本书可打多个标签，支持按标签筛选
 - **小说收藏**：一键收藏/取消收藏，收藏列表页
-- **小说评分**：1-5 星评分，支持评价文字，显示平均评分
+- **小说评分**：1-5 星评分，支持评价文字，显示平均评分；已评分后显示"我的评价"（预填上次分数和评论），按钮变为"更新评分"
 - **TXT 导入（4 步向导）**：
   - Step 1：上传文件，自动检测编码（GBK/GB2312/UTF-8）并转换为 UTF-8
-  - Step 2：选择章节拆分规则（8 大类默认规则）或自定义正则
+  - Step 2：选择章节拆分规则（8 大类默认规则，支持多规则组合）或自定义正则
   - Step 3：预览章节标题列表，支持删除章节并重新生成
   - Step 4：确认保存，标题默认取文件名（不含扩展名），作者可为空
 - **章节拆分规则管理**：8 大类内置规则（中文序号、特殊章节、分隔符、英文序号、特殊符号、纯数字、分节阅读、卷/部/篇），支持自定义新增、编辑、启用/禁用
 - **小说列表**：支持按分类/标签筛选，支持按评分、最后阅读时间、书籍字数排序（正序/反序），筛选与排序可合并
+- **章节目录分页**：独立章节目录页，支持 10/20/50/100 四种每页章节数，翻页浏览
 - **书签功能**：添加、查看、删除书签，支持跳转
 - **在线内容修改**：修改章节标题与正文，即时生效
 - **小说导出**：导出为 TXT 文件，章节按序拼接
 - **全站全文搜索**：搜索章节内容，显示匹配摘要与跳转链接
 - **Flask-Admin 后台**：完整的数据模型管理界面
-- **响应式设计**：适配电脑（≥992px）与手机（<992px）
-- **主题切换**：全站支持白天/黑夜两种配色，切换按钮固定在右上角，未登录也可使用，状态持久化到 localStorage
+- **移动优先响应式设计**：以小米14 (393px) 和 iPhone 17 (430px) 为标准，底部 Tab 导航栏（≤768px），`env(safe-area-inset-*)` 安全区域适配，最小 44px 触摸目标
+- **阅读器增强**：手机端固定底部导航栏（上一章/返回目录/下一章），字体大小调节，左右点击翻页
+- **墨斋设计系统**：CSS 变量驱动的明暗主题，切换按钮固定在右上角，未登录也可使用，状态持久化到 localStorage
 
 ## 技术栈
 
@@ -69,8 +71,8 @@ python run.py
 ```
 flask-admin-sqlite-novel/
 ├── app/
-│   ├── __init__.py          # Flask 应用工厂
-│   ├── models.py            # 数据模型定义
+│   ├── __init__.py          # Flask 应用工厂 + Flask-Admin 初始化
+│   ├── models.py            # 11 个数据模型定义
 │   ├── auth.py              # 登录鉴权模块
 │   ├── importer.py          # TXT 导入模块（4 步向导）
 │   ├── rules.py             # 章节拆分规则管理
@@ -78,18 +80,58 @@ flask-admin-sqlite-novel/
 │   ├── tags.py              # 标签管理
 │   ├── favorites.py         # 收藏管理
 │   ├── ratings.py           # 评分管理
-│   ├── novels.py            # 小说列表与详情
-│   ├── reading.py           # 阅读模块
+│   ├── novels.py            # 小说列表、详情、章节目录分页
+│   ├── reading.py           # 阅读模块（进度、书签）
+│   ├── editor.py            # 在线编辑
 │   ├── search.py            # 全文搜索
-│   └── export.py            # 导出模块
-├── templates/               # Layui 模板
-│   ├── base.html            # 基础模板
+│   ├── export.py            # 导出模块
+│   └── utils.py             # 工具函数（默认规则初始化等）
+├── templates/               # 墨斋设计系统模板（移动优先）
+│   ├── base.html            # 基础模板（底部 Tab 导航、明暗主题）
 │   ├── login.html           # 登录页
 │   ├── dashboard.html       # 仪表盘
 │   ├── novels/              # 小说相关页面
-│   ├── rules/               # 规则管理页面
-│   └── ...
-├── static/                  # 静态资源（Layui）
+│   │   ├── list.html        # 小说列表
+│   │   ├── detail.html      # 小说详情（评分 + 标签弹窗）
+│   │   ├── chapters.html    # 章节目录分页
+│   │   └── rules.html       # 书籍规则管理
+│   ├── import/              # 导入向导
+│   │   ├── step1.html       # Step 1：上传
+│   │   ├── step2.html       # Step 2：选择规则
+│   │   ├── step3.html       # Step 3：预览章节
+│   │   └── step4.html       # Step 4：确认保存
+│   ├── reading/             # 阅读相关
+│   │   └── reader.html      # 阅读页（底部导航 + 字体控制）
+│   ├── editor/              # 编辑相关
+│   │   └── edit.html        # 章节编辑
+│   ├── search/              # 搜索相关
+│   │   └── results.html     # 搜索结果
+│   ├── favorites/           # 收藏相关
+│   │   └── list.html        # 收藏列表
+│   ├── rules/               # 规则管理
+│   │   └── list.html        # 规则列表
+│   ├── categories/          # 分类管理
+│   │   └── list.html        # 分类列表
+│   └── tags/                # 标签管理
+│       └── list.html        # 标签列表
+├── tests/                   # TDD 测试套件（14 个测试文件）
+│   ├── conftest.py
+│   └── unit/
+│       ├── test_auth.py
+│       ├── test_models.py
+│       ├── test_importer.py
+│       ├── test_importer_multiple_pattern.py
+│       ├── test_large_import.py
+│       ├── test_real_import.py
+│       ├── test_rules.py
+│       ├── test_categories.py
+│       ├── test_tags.py
+│       ├── test_ratings.py
+│       ├── test_favorites.py
+│       ├── test_chapters.py
+│       ├── test_reader_nav.py
+│       └── test_detail_page.py
+├── static/                  # 静态资源
 ├── config.py                # 配置文件
 ├── run.py                   # 启动入口
 └── requirements.txt         # 依赖清单
@@ -136,6 +178,7 @@ flask-admin-sqlite-novel/
 | `/dashboard` | GET | 仪表盘 |
 | `/novels` | GET | 小说列表页（支持分类/标签筛选） |
 | `/novels/<id>` | GET | 小说详情页 |
+| `/novels/<id>/chapter` | GET | 章节目录分页（支持 ?page=&per_page=） |
 | `/novels/<id>/delete` | POST | 删除小说 |
 | `/novels/<id>/read/<chapter_id>` | GET | 阅读页 |
 | `/novels/<id>/chapter/<chapter_id>/edit` | GET/POST | 编辑章节 |
@@ -348,7 +391,23 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024   # 最大上传大小（50MB）
 
 1. 点击侧边栏"标签管理"进入标签列表
 2. 创建标签时可设置颜色
-3. 在小说详情页可勾选/取消勾选标签
+3. 在小说详情页点击"修改标签"，弹出标签选择框，勾选零个或多个标签后点击"确定"
+
+### 评分
+
+1. 在小说详情页评分区域选择 1-5 星，可附评价文字
+2. 提交后标题变为"我的评价"，星星和评论预填上次内容
+3. 可随时修改评分，也可"清除评分"删除
+
+### 运行测试
+
+```bash
+# 运行全部测试
+python -m pytest tests/unit/ -v
+
+# 运行特定模块测试
+python -m pytest tests/unit/test_detail_page.py -v
+```
 
 ## 开发说明
 
