@@ -17,6 +17,7 @@
 - **小说导出模块**：支持将整本小说导出为 TXT 文件下载
 - **全站小说内容搜索**：跨小说/章节的全文搜索，结果定位到章节
 - **响应式布局**：基于 Layui 实现电脑与手机自适应
+- **主题切换模块**：全站支持白天/黑夜两种配色，切换按钮固定在右上角，未登录也可使用，状态持久化到 localStorage
 - **Flask-Admin 管理后台**：提供数据模型的后台管理能力
 
 ## Impact
@@ -228,6 +229,29 @@
 #### Scenario: 手机访问阅读页
 - **WHEN** 用户在手机浏览器打开阅读页
 - **THEN** 页面自适应屏幕宽度，字体与按钮可正常操作
+
+### Requirement: 主题切换
+系统 SHALL 提供白天/黑夜两种配色主题，切换按钮固定在页面右上角；未登录用户也可使用；主题状态持久化到 localStorage，下次访问自动恢复上次选择。
+
+#### Scenario: 默认主题
+- **WHEN** 用户首次访问系统
+- **THEN** 系统使用白天主题，右上角显示月亮图标（点击切换到黑夜）
+
+#### Scenario: 切换到黑夜模式
+- **WHEN** 用户点击右上角月亮图标
+- **THEN** 页面切换到黑夜配色，图标变为太阳，主题状态保存到 localStorage
+
+#### Scenario: 切换到白天模式
+- **WHEN** 用户点击右上角太阳图标
+- **THEN** 页面切换到白天配色，图标变为月亮，主题状态保存到 localStorage
+
+#### Scenario: 持久化主题
+- **WHEN** 用户切换主题后刷新页面或重新打开浏览器
+- **THEN** 系统从 localStorage 读取上次主题状态并自动应用
+
+#### Scenario: 未登录使用主题切换
+- **WHEN** 未登录用户访问登录页并点击主题切换按钮
+- **THEN** 页面正常切换主题，无需登录
 
 ### Requirement: Flask-Admin 后台
 系统 SHALL 通过 Flask-Admin 提供数据模型（Category、Novel、Chapter、ReadingProgress、Bookmark、User、ChapterRule、Tag、Favorite、Rating）的后台增删改查界面，且后台同样需要登录鉴权。
