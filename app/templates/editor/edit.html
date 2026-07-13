@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><title>Edit Chapter</title></head>
+<body>
+<h1>Edit: {{ chapter.title }}</h1>
+<form method="post">
+  <input type="text" name="title" value="{{ chapter.title }}">
+  <textarea name="content">{{ chapter.content }}</textarea>
+  <button type="submit">Save</button>
+</form>
+</body>
+</html>

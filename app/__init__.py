@@ -26,6 +26,7 @@ def create_app(config=None):
     from app.export import export_bp
     from app.search import search_bp
     from app.reading import reading_bp
+    from app.editor import editor_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(categories_bp)
@@ -37,5 +38,6 @@ def create_app(config=None):
     app.register_blueprint(export_bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(reading_bp)
+    app.register_blueprint(editor_bp)
 
     return app
