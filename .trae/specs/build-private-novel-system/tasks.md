@@ -27,13 +27,15 @@
   - [ ] SubTask 3.4: 根路径 `/` 重定向到 `/login` 或 `/dashboard`（根据登录状态）
   - [ ] SubTask 3.5: 命令行初始化默认用户脚本/函数（首次启动自动创建账号）
 
-- [ ] Task 4: 实现 TXT 导入模块 (`app/importer.py`)
-  - [ ] SubTask 4.1: 使用 chardet 自动检测文件编码并读取文本
-  - [ ] SubTask 4.2: 从 `ChapterRule` 表加载章节拆分规则正则，提供默认 fallback
-  - [ ] SubTask 4.3: 支持"自定义正则"输入框覆盖所选规则
-  - [ ] SubTask 4.4: 按章节拆分并写入 `Novel` 与 `Chapter` 记录，第一章前的引言归入"序章"
-  - [ ] SubTask 4.5: 从 `TitlePattern` 表加载标题提取规则，按匹配源从文件内容/文件名提取标题与作者
-  - [ ] SubTask 4.6: `/novels/import` GET 渲染上传页（章节规则下拉 + 标题规则下拉 + 自定义正则输入 + 标题/作者预填）/ POST 接收文件、rule_id、title_pattern_id、custom_pattern、title、author 并调用导入逻辑
+- [ ] Task 4: 实现 TXT 导入模块（4 步向导）(`app/importer.py`)
+  - [ ] SubTask 4.1: 使用 chardet 自动检测文件编码并转换为 UTF-8，保存临时文件
+  - [ ] SubTask 4.2: Step 1 上传：`/novels/import` GET 渲染上传页 / POST 接收文件，检测编码并转换为 UTF-8 临时文件，返回 session_id
+  - [ ] SubTask 4.3: Step 2 选择章节规则：`/novels/import/step2` GET 渲染规则选择页（含启用规则下拉 + 自定义正则输入框）/ POST 提交所选规则，执行拆分并生成章节列表，保存到 session
+  - [ ] SubTask 4.4: Step 3 章节列表预览：`/novels/import/step3` GET 渲染章节标题列表（标题、字数、内容预览、删除按钮）/ POST 删除指定章节后重新生成列表
+  - [ ] SubTask 4.5: Step 4 确认保存：`/novels/import/step4` GET 渲染确认页（小说元信息表单 + 章节数量统计）/ POST 提交元信息，按最终章节列表创建 Novel 与 Chapter 记录
+  - [ ] SubTask 4.6: 从 `ChapterRule` 表加载章节拆分规则正则，支持自定义正则覆盖
+  - [ ] SubTask 4.7: 从 `TitlePattern` 表加载标题提取规则，自动提取标题与作者预填到 Step 4 表单
+  - [ ] SubTask 4.8: 章节拆分逻辑：按章节标题正则拆分文本，第一章前内容归入"序章"
 
 - [ ] Task 5: 实现 TXT 目录规则管理模块 (`app/rules.py`)
   - [ ] SubTask 5.1: 首次启动初始化内置默认规则（`第.{1,8}章`、`第.{1,8}回`、`Chapter\s+\d+`，is_default=True，enabled=True）
