@@ -1,0 +1,5 @@
+Flask>=2.0
+Flask-SQLAlchemy>=3.0
+Flask-Admin>=1.6
+chardet>=5.0
+Werkzeug>=2.0
