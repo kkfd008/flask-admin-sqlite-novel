@@ -15,21 +15,23 @@ DEFAULT_RULES = [
 
 
 def init_default_rules():
-    existing_rules = ChapterRule.query.all()
-    if existing_rules:
-        return
-
     for idx, rule_data in enumerate(DEFAULT_RULES):
-        rule = ChapterRule(
-            name=rule_data['name'],
-            pattern=rule_data['pattern'],
-            category=rule_data['category'],
-            description=rule_data['description'],
-            is_default=True,
-            sort_order=idx
-        )
-        db.session.add(rule)
-    
+        existing = ChapterRule.query.filter_by(name=rule_data['name']).first()
+        if existing:
+            existing.category = rule_data['category']
+            existing.description = rule_data['description']
+            existing.sort_order = idx
+        else:
+            rule = ChapterRule(
+                name=rule_data['name'],
+                pattern=rule_data['pattern'],
+                category=rule_data['category'],
+                description=rule_data['description'],
+                is_default=True,
+                sort_order=idx
+            )
+            db.session.add(rule)
+
     db.session.commit()
 
 

@@ -192,6 +192,33 @@ def test_disabled_system_rule_still_visible(client, app):
     assert '启用' in data, '禁用后的按钮应该显示"启用"'
 
 
+def test_init_updates_old_category_rules(app):
+    """旧 category 规则存在时，init 应更新为 '系统' 而非跳过"""
+    with app.app_context():
+        from app.models import db, ChapterRule
+        from app.utils import init_default_rules
+
+        # 模拟旧数据：规则存在但 category 不是 '系统'
+        old_rule = ChapterRule(
+            name='中文数字章节',
+            pattern='^第[零一二三四五六七八九十百千万\\d]+章.*$',
+            category='chinese-number',
+            is_default=True,
+            sort_order=0
+        )
+        db.session.add(old_rule)
+        db.session.commit()
+
+        # 调用 init — 应更新旧规则 category 为 '系统' 而非跳过
+        init_default_rules()
+
+        rules = ChapterRule.query.all()
+        assert len(rules) >= 8, f'预期 >=8 条规则，实际 {len(rules)}'
+
+        for rule in rules:
+            assert rule.category == '系统', f'规则 {rule.name} 的 category 应为 系统，实际为 {rule.category}'
+
+
 class TestDefaultRules:
     def test_default_rules_count(self, app):
         with app.app_context():
