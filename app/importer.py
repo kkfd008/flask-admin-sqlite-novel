@@ -88,6 +88,7 @@ def step2():
                 chapter_titles.append(line)
 
         session['import_pattern'] = combined_pattern
+        session['import_rule_ids'] = rule_ids
         session['import_chapter_titles'] = [{'title': t, 'index': i} for i, t in enumerate(chapter_titles)]
 
         return redirect(url_for('importer.step3'))
@@ -136,6 +137,17 @@ def step4():
         pattern = session.get('import_pattern', '')
         if not pattern:
             pattern = DEFAULT_RULES[0]['pattern']
+        # 重新从 rule_ids 构建：每个模式转为非捕获组再组合，避免内部捕获组扰乱 re.split 索引
+        rule_ids = session.get('import_rule_ids', [])
+        if rule_ids:
+            db_patterns = []
+            for rid in rule_ids:
+                if rid:
+                    rule = ChapterRule.query.get(int(rid))
+                    if rule:
+                        db_patterns.append(rule.pattern)
+            if db_patterns:
+                pattern = '|'.join(f'(?:{p})' for p in db_patterns)
 
         novel = Novel(title=title, author=author.strip() if author else None)
         if category_id:
@@ -143,7 +155,17 @@ def step4():
         db.session.add(novel)
         db.session.commit()
 
-        parts = re.split(f'({pattern})', content, flags=re.MULTILINE)
+        # 使用 re.finditer 手动拆分，避免 re.split 捕获组索引错乱
+        matches = list(re.finditer(pattern, content, flags=re.MULTILINE))
+        parts = []
+        if not matches:
+            parts = [content]
+        else:
+            parts.append(content[:matches[0].start()])
+            for i, m in enumerate(matches):
+                parts.append(m.group(0))
+                end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+                parts.append(content[m.end():end])
 
         chapter_order = 0
         preamble = parts[0].strip() if parts and parts[0] else ''
