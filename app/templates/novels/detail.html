@@ -584,60 +584,17 @@
   </div>
 </div>
 
-<!-- ====== Chapter List ====== -->
+<!-- ====== Chapter Directory Link ====== -->
 <div class="chapter-section">
   <div class="chapter-header">
     <span class="section-title">目录</span>
     <span class="chapter-count">共 {{ chapters|length }} 章</span>
   </div>
-
   {% if chapters %}
-  <!-- Mobile: Card List -->
-  <div class="chapter-cards">
-    {% for ch in chapters %}
-    <div class="chapter-card">
-      <span class="ch-order">{{ ch.order }}</span>
-      <span class="ch-title">
-        <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=ch.id) }}">{{ ch.title }}</a>
-      </span>
-      <span class="ch-word-count">{{ ch.word_count }}</span>
-      <span class="ch-edit">
-        <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=ch.id) }}" class="btn btn-secondary btn-xs">编辑</a>
-      </span>
-    </div>
-    {% endfor %}
-  </div>
-
-  <!-- Desktop: Table -->
-  <div class="chapter-table">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:60px;">序号</th>
-            <th>章节标题</th>
-            <th style="width:80px;">字数</th>
-            <th style="width:120px;">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for ch in chapters %}
-          <tr>
-            <td>{{ ch.order }}</td>
-            <td>
-              <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=ch.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:500;">
-                {{ ch.title }}
-              </a>
-            </td>
-            <td class="text-muted">{{ ch.word_count }}</td>
-            <td>
-              <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=ch.id) }}" class="btn btn-secondary btn-xs">编辑</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <div style="text-align:center; padding:24px 0;">
+    <a href="{{ url_for('novels.chapter_directory', id=novel.id) }}" class="btn btn-primary" style="font-size:0.95rem;">
+      📖 查看全部章节
+    </a>
   </div>
   {% else %}
   <div class="chapter-empty">

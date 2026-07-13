@@ -43,6 +43,24 @@ def detail(id):
     return render_template('novels/detail.html', novel=novel, chapters=chapters, all_tags=all_tags)
 
 
+@novels_bp.route('/<int:id>/chapter')
+@login_required
+def chapter_directory(id):
+    novel = Novel.query.get_or_404(id)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    # 允许的每页选项
+    if per_page not in (10, 20, 50, 100):
+        per_page = 20
+
+    pagination = Chapter.query.filter_by(novel_id=id)\
+        .order_by(Chapter.order)\
+        .paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('novels/chapters.html', novel=novel, pagination=pagination,
+                          per_page=per_page, page=page)
+
+
 @novels_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
 def delete(id):

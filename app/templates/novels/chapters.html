@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}{{ novel.title }} · 目录 · 墨斋{% endblock %}
+{% block content %}
+
+<style>
+/* ============================================
+   Chapter Directory — Mobile-First Styles
+   ============================================ */
+
+.page-header { margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+.page-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.page-header .novel-link {
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.page-header .novel-link:hover { text-decoration: underline; }
+
+/* --- Per-page selector --- */
+.per-page-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.per-page-bar .total-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.per-page-bar .per-page-options {
+  display: flex;
+  gap: 4px;
+}
+.per-page-bar .per-page-options a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all var(--transition);
+}
+.per-page-bar .per-page-options a.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.per-page-bar .per-page-options a:active {
+  transform: scale(0.95);
+}
+
+/* --- Chapter Cards --- */
+.chapter-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+  min-height: 48px;
+}
+.chapter-card:nth-child(even) {
+  background: var(--bg-elevated);
+}
+.chapter-card:active {
+  background: var(--accent-subtle);
+}
+.chapter-card .ch-order {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.chapter-card .ch-title {
+  flex: 1;
+  min-width: 0;
+}
+.chapter-card .ch-title a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 44px;
+  line-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.chapter-card .ch-title a:hover,
+.chapter-card .ch-title a:active {
+  color: var(--accent);
+}
+.chapter-card .ch-word-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.chapter-card .ch-edit {
+  flex-shrink: 0;
+}
+
+/* --- Pagination --- */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 20px 0 12px;
+  flex-wrap: wrap;
+}
+.pagination a, .pagination span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all var(--transition);
+  font-variant-numeric: tabular-nums;
+}
+.pagination a.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.pagination a:hover:not(.active) {
+  background: var(--bg-elevated);
+}
+.pagination a:active {
+  transform: scale(0.95);
+}
+.pagination span.disabled {
+  color: var(--text-muted);
+  border-color: transparent;
+  opacity: 0.4;
+}
+
+/* --- Empty State --- */
+.chapter-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.chapter-empty .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+.chapter-empty .empty-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.chapter-empty .empty-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* --- Desktop (≥769px) --- */
+@media (min-width: 769px) {
+  .page-header h1 { font-size: 1.5rem; }
+  .chapter-card { padding: 10px 16px; }
+}
+</style>
+
+<!-- ====== Header ====== -->
+<div class="page-header">
+  <h1>目录</h1>
+  <a href="{{ url_for('novels.detail', id=novel.id) }}" class="novel-link">{{ novel.title }}</a>
+</div>
+
+<!-- ====== Per-page selector ====== -->
+{% if pagination.total > 0 %}
+<div class="per-page-bar">
+  <span class="total-info">共 {{ pagination.total }} 章</span>
+  <div class="per-page-options">
+    {% for n in [10, 20, 50, 100] %}
+    <a href="{{ url_for('novels.chapter_directory', id=novel.id, per_page=n, page=1) }}"
+       class="{% if per_page == n %}active{% endif %}">{{ n }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ====== Chapter Cards ====== -->
+{% if pagination.items %}
+<div>
+  {% for ch in pagination.items %}
+  <div class="chapter-card">
+    <span class="ch-order">{{ ch.order }}</span>
+    <span class="ch-title">
+      <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=ch.id) }}">{{ ch.title }}</a>
+    </span>
+    <span class="ch-word-count">{{ ch.word_count }}</span>
+    <span class="ch-edit">
+      <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=ch.id) }}" class="btn btn-secondary btn-xs">编辑</a>
+    </span>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ====== Pagination ====== -->
+<div class="pagination">
+  {% if pagination.has_prev %}
+  <a href="{{ url_for('novels.chapter_directory', id=novel.id, per_page=per_page, page=pagination.prev_num) }}">上一页</a>
+  {% else %}
+  <span class="disabled">上一页</span>
+  {% endif %}
+
+  {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+    {% if p %}
+    <a href="{{ url_for('novels.chapter_directory', id=novel.id, per_page=per_page, page=p) }}"
+       class="{% if p == pagination.page %}active{% endif %}">{{ p }}</a>
+    {% else %}
+    <span class="disabled">…</span>
+    {% endif %}
+  {% endfor %}
+
+  {% if pagination.has_next %}
+  <a href="{{ url_for('novels.chapter_directory', id=novel.id, per_page=per_page, page=pagination.next_num) }}">下一页</a>
+  {% else %}
+  <span class="disabled">下一页</span>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="chapter-empty">
+  <div class="empty-icon">📖</div>
+  <div class="empty-text">暂无章节</div>
+  <div class="empty-sub">请先导入小说内容</div>
+</div>
+{% endif %}
+
+{% endblock %}
