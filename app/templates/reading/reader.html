@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><title>{{ novel.title }} - {{ chapter.title }}</title></head>
+<body>
+<h1>{{ chapter.title }}</h1>
+<div>{{ chapter.content }}</div>
+<div>
+  {% if prev_chapter %}<a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=prev_chapter.id) }}">Prev</a>{% endif %}
+  {% if next_chapter %}<a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=next_chapter.id) }}">Next</a>{% endif %}
+</div>
+</body>
+</html>
