@@ -176,23 +176,14 @@
 
 .chip-scroll {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding-bottom: 2px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.chip-scroll::-webkit-scrollbar {
-  display: none;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   padding: 7px 14px;
   font-family: var(--font-body);
   font-size: 0.8rem;
@@ -311,9 +302,8 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
   flex: 1;
   min-width: 0;
   line-height: 1.35;
