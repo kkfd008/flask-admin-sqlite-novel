@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Import Step 2</title></head>
+<body>
+<h1>Select Rule</h1>
+<form method="post">
+  <select name="rule_id">
+    {% for rule in rules %}
+    <option value="{{ rule.id }}">{{ rule.name }}</option>
+    {% endfor %}
+  </select>
+  <input type="text" name="custom_pattern" placeholder="Custom regex">
+  <button type="submit">Next</button>
+</form>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><title>Import Step 3</title></head>
+<body>
+<h1>Preview Chapters</h1>
+<form method="post">
+  {% for t in chapter_titles %}
+  <div>{{ t.title }} <button type="submit" name="delete_index" value="{{ loop.index0 }}">Delete</button></div>
+  {% endfor %}
+  <button type="submit">Next</button>
+</form>
+</body>
+</html>
