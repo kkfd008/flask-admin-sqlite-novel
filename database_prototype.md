@@ -128,8 +128,8 @@ user ─────< reading_progress
 | `cover` | VARCHAR(500) | NULL | 封面图片路径（预留） |
 | `word_count` | INTEGER | DEFAULT 0 | 总字数（所有章节字数之和） |
 | `chapter_count` | INTEGER | DEFAULT 0 | 章节总数 |
+| `user_rating` | INTEGER | DEFAULT 0, CHECK (user_rating BETWEEN 0 AND 5) | 平均评分（四舍五入为 1-5 整数，无评分时为 0），每次用户评价后重新计算写入 |
 | `is_favorite` | - | - | 不存字段，通过 favorite 表动态查询 |
-| `avg_rating` | - | - | 不存字段，通过 rating 表动态计算 |
 | `created_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | 导入时间 |
 | `updated_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | 最后更新时间 |
 

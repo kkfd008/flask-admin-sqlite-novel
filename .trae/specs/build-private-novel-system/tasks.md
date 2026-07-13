@@ -10,7 +10,7 @@
 - [ ] Task 2: 设计数据模型 (`app/models.py`)
   - [ ] SubTask 2.1: `User` 模型（id、username、password_hash）
   - [ ] SubTask 2.2: `Category` 模型（id、name、description）
-  - [ ] SubTask 2.3: `Novel` 模型（id、title、author、description、category_id、created_at、updated_at）
+  - [ ] SubTask 2.3: `Novel` 模型（id、title、author、description、category_id、user_rating、created_at、updated_at）— user_rating 为平均评分，四舍五入为 1-5 整数，默认 0
   - [ ] SubTask 2.4: `Chapter` 模型（id、novel_id、title、content、order、word_count）
   - [ ] SubTask 2.5: `ReadingProgress` 模型（id、user_id、novel_id、chapter_id、scroll_position、updated_at）
   - [ ] SubTask 2.6: `Bookmark` 模型（id、user_id、chapter_id、title、position、created_at）
@@ -67,8 +67,9 @@
 
 - [ ] Task 9: 实现小说评分模块
   - [ ] SubTask 9.1: `/novels/<id>/rate` POST 提交/更新评分（score 1-5，可选 comment）
-  - [ ] SubTask 9.2: 小说详情页显示平均评分、评分人数、当前用户评分
-  - [ ] SubTask 9.3: 小说列表页显示每本书的平均星级
+  - [ ] SubTask 9.2: 评分保存后重新计算平均评分，四舍五入为 1-5 整数，写入 Novel.user_rating 字段
+  - [ ] SubTask 9.3: 小说详情页显示平均评分、评分人数、当前用户评分
+  - [ ] SubTask 9.4: 小说列表页显示每本书的平均星级（从 Novel.user_rating 读取）
 
 - [ ] Task 10: 实现小说列表与详情模块
   - [ ] SubTask 10.1: `/novels` GET 渲染小说列表页（支持按分类/标签筛选，显示评分与收藏状态）
