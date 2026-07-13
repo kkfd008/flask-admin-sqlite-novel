@@ -174,3 +174,35 @@ class TestImporter:
         html = response.data.decode('utf-8')
         assert '节1' in html, f'自定义规则应匹配章节，实际: {html[:500]}'
         assert '节2' in html
+
+    def test_step3_session_persists_with_many_chapters(self, client, app):
+        """大量章节时 session 不应丢失，step3 应正常显示预览"""
+        with app.app_context():
+            from app.models import db, User, ChapterRule
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            db.session.add_all([user, rule])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 生成大量章节（模拟 session cookie 超过 4KB 限制）
+        lines = []
+        for i in range(1, 201):
+            lines.append(f'第{i}章 章节标题{"很" * 30}')
+            lines.append(f'这是第{i}章的内容{"。" * 40}')
+        content = '\n'.join(lines)
+
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+
+        # 提交 step2
+        response = client.post('/novels/import/step2', data={}, follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        # 应显示预览页，而非退回 step1
+        assert '第1章' in html, f'大量章节时 session 不应丢失，实际: {html[:500]}'
+        assert '第200章' in html
+        assert '第三步' in html or '预览' in html or '识别' in html

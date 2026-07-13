@@ -1,6 +1,8 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin
+from flask_session import Session
+import os
 from flask_admin.contrib.sqla import ModelView
 
 db = SQLAlchemy()
@@ -25,6 +27,11 @@ def create_app(config=None):
 
     if config:
         app.config.update(config)
+
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'flask_session')
+    app.config['SESSION_PERMANENT'] = False
+    Session(app)
 
     db.init_app(app)
 
