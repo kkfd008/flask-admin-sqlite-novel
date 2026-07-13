@@ -42,8 +42,9 @@ def detail(id):
     all_tags = Tag.query.all()
     user_id = session.get('user_id', 1)
     my_rating = Rating.query.filter_by(user_id=user_id, novel_id=id).first()
+    is_favorited = Favorite.query.filter_by(user_id=user_id, novel_id=id).first() is not None
     return render_template('novels/detail.html', novel=novel, chapters=chapters,
-                          all_tags=all_tags, my_rating=my_rating)
+                          all_tags=all_tags, my_rating=my_rating, is_favorited=is_favorited)
 
 
 @novels_bp.route('/<int:id>/chapter')

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, session
+from flask import Blueprint, render_template, redirect, url_for, session, request
 from app.models import db, Favorite, Novel
 from app.auth import login_required
 
@@ -12,6 +12,20 @@ def list():
     favorites = Favorite.query.filter_by(user_id=user_id).all()
     novels = [fav.novel for fav in favorites]
     return render_template('favorites/list.html', novels=novels)
+
+
+@favorites_bp.route('/novels/<int:novel_id>/toggle', methods=['POST'])
+@login_required
+def toggle(novel_id):
+    user_id = session.get('user_id')
+    existing = Favorite.query.filter_by(user_id=user_id, novel_id=novel_id).first()
+    if existing:
+        db.session.delete(existing)
+    else:
+        fav = Favorite(user_id=user_id, novel_id=novel_id)
+        db.session.add(fav)
+    db.session.commit()
+    return redirect(url_for('novels.detail', id=novel_id))
 
 
 @favorites_bp.route('/novels/<int:novel_id>/favorite', methods=['POST'])

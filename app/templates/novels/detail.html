@@ -54,6 +54,20 @@
   background: var(--danger);
   color: #fff;
 }
+.detail-actions .btn-favorite {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all var(--transition);
+}
+.detail-actions .btn-favorite.favorited {
+  color: #E74C3C;
+  border-color: #E74C3C;
+  background: rgba(231, 76, 60, 0.06);
+}
+.detail-actions .btn-favorite:active {
+  transform: scale(0.96);
+}
 
 /* --- Info Card (key-value rows) --- */
 .info-card {
@@ -562,11 +576,10 @@
     {% if novel.author %}<p class="detail-author">{{ novel.author }} 著</p>{% endif %}
   </div>
   <div class="detail-actions">
-    <form method="post" action="{{ url_for('favorites.favorite', novel_id=novel.id) }}">
-      <button type="submit" class="btn btn-secondary">☆ 收藏</button>
-    </form>
-    <form method="post" action="{{ url_for('favorites.unfavorite', novel_id=novel.id) }}">
-      <button type="submit" class="btn btn-secondary">★ 取消收藏</button>
+    <form method="post" action="{{ url_for('favorites.toggle', novel_id=novel.id) }}">
+      <button type="submit" class="btn btn-favorite {% if is_favorited %}favorited{% endif %}">
+        {% if is_favorited %}♥ 取消收藏{% else %}♡ 收藏{% endif %}
+      </button>
     </form>
     <a href="{{ url_for('novels.rules_list', id=novel.id) }}" class="btn btn-secondary">规则</a>
     <form method="post" action="{{ url_for('novels.delete', id=novel.id) }}" onsubmit="return confirm('确定要删除《{{ novel.title }}》吗？此操作不可恢复。')">
