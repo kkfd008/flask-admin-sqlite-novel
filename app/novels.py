@@ -40,7 +40,10 @@ def detail(id):
     novel = Novel.query.get_or_404(id)
     chapters = Chapter.query.filter_by(novel_id=id).order_by(Chapter.order).all()
     all_tags = Tag.query.all()
-    return render_template('novels/detail.html', novel=novel, chapters=chapters, all_tags=all_tags)
+    user_id = session.get('user_id', 1)
+    my_rating = Rating.query.filter_by(user_id=user_id, novel_id=id).first()
+    return render_template('novels/detail.html', novel=novel, chapters=chapters,
+                          all_tags=all_tags, my_rating=my_rating)
 
 
 @novels_bp.route('/<int:id>/chapter')
