@@ -14,7 +14,7 @@
   - [ ] SubTask 2.4: `Chapter` 模型（id、novel_id、title、content、order、word_count）
   - [ ] SubTask 2.5: `ReadingProgress` 模型（id、user_id、novel_id、chapter_id、scroll_position、updated_at）
   - [ ] SubTask 2.6: `Bookmark` 模型（id、user_id、chapter_id、title、position、created_at）
-  - [ ] SubTask 2.7: `ChapterRule` 模型（id、name、pattern、description、enabled、is_default）
+  - [ ] SubTask 2.7: `ChapterRule` 模型（id、name、pattern、category、description、enabled、is_default、sort_order）
   - [ ] SubTask 2.8: `Tag` 模型（id、name、color） + `novel_tags` 多对多关联表
   - [ ] SubTask 2.9: `Favorite` 模型（id、user_id、novel_id、created_at）
   - [ ] SubTask 2.10: `Rating` 模型（id、user_id、novel_id、score、comment、created_at、updated_at）
@@ -36,8 +36,8 @@
   - [ ] SubTask 4.7: 章节拆分逻辑：按章节标题正则拆分文本，第一章前内容归入"序章"
 
 - [ ] Task 5: 实现 TXT 目录规则管理模块 (`app/rules.py`)
-  - [ ] SubTask 5.1: 首次启动初始化内置默认规则（`第.{1,8}章`、`第.{1,8}回`、`Chapter\s+\d+`，is_default=True，enabled=True）
-  - [ ] SubTask 5.2: `/rules` GET 渲染规则列表页（名称、正则、描述、启用状态、操作按钮）
+  - [ ] SubTask 5.1: 首次启动初始化 8 大类内置默认规则（中文序号、特殊章节、分隔符、英文序号、特殊符号、纯数字、分节阅读、卷部篇），is_default=True，enabled=True
+  - [ ] SubTask 5.2: `/rules` GET 渲染规则列表页（分类、名称、正则、描述、启用状态、操作按钮）
   - [ ] SubTask 5.3: `/rules/create` POST 新增规则
   - [ ] SubTask 5.4: `/rules/<id>/edit` POST 编辑规则
   - [ ] SubTask 5.5: `/rules/<id>/toggle` POST 启用/禁用切换
@@ -105,7 +105,7 @@
 - [ ] Task 17: 验证与测试
   - [ ] SubTask 17.1: 启动应用并验证首页跳转到登录页
   - [ ] SubTask 17.2: 验证登录、登出流程
-  - [ ] SubTask 17.3: 验证章节规则列表页、新增/编辑/启用禁用/删除/恢复默认规则
+  - [ ] SubTask 17.3: 验证章节规则列表页（8 大类默认规则）、新增/编辑/启用禁用/删除/恢复默认规则
   - [ ] SubTask 17.4: 验证导入 4 步向导：Step 1 上传转码、Step 2 选择章节规则、Step 3 预览删除章节、Step 4 确认保存（标题默认为文件名，作者可为空）
   - [ ] SubTask 17.5: 验证标签管理（新增、编辑、删除）与小说标签关联（添加、移除、按标签筛选）
   - [ ] SubTask 17.6: 验证收藏功能（收藏、取消收藏、收藏列表）
