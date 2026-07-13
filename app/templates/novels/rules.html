@@ -12,25 +12,6 @@
   </div>
 </div>
 
-<div class="card mb-3">
-  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">
-    {% if rules %}编辑规则{% else %}创建规则{% endif %}
-  </h3>
-  <form method="post" action="{{ url_for('novels.rules_create', id=novel.id) }}">
-    <div style="display:grid; grid-template-columns:1fr; gap:12px;">
-      <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" for="pattern">正则表达式</label>
-        <input class="form-input" type="text" id="pattern" name="pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章" value="{{ rules[0].pattern if rules else '' }}" required>
-      </div>
-      <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label" for="description">规则描述</label>
-        <input class="form-input" type="text" id="description" name="description" placeholder="描述此规则的用途" value="{{ rules[0].description if rules else '' }}">
-      </div>
-    </div>
-    <button type="submit" class="btn btn-primary btn-sm mt-2 novel-rule-save-btn">保存规则</button>
-  </form>
-</div>
-
 {% if rules %}
 <!-- Desktop: table -->
 <div class="table-wrap novel-rule-table-desktop">
@@ -81,7 +62,7 @@
       </form>
     </div>
   </div>
-  {% endfor %}
+{% endfor %}
 </div>
 {% else %}
 <div class="empty-state">
@@ -90,6 +71,25 @@
   <p>为此小说创建专属的章节识别正则表达式</p>
 </div>
 {% endif %}
+
+<div class="card mb-3">
+  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">
+    {% if rules %}编辑规则{% else %}创建规则{% endif %}
+  </h3>
+  <form method="post" action="{{ url_for('novels.rules_create', id=novel.id) }}">
+    <div style="display:grid; grid-template-columns:1fr; gap:12px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="pattern">正则表达式</label>
+        <input class="form-input" type="text" id="pattern" name="pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章" value="{{ rules[0].pattern if rules else '' }}" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="description">规则描述</label>
+        <input class="form-input" type="text" id="description" name="description" placeholder="描述此规则的用途" value="{{ rules[0].description if rules else '' }}">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm mt-2 novel-rule-save-btn">保存规则</button>
+  </form>
+</div>
 
 <style>
 /* Card list: hidden on desktop, shown on mobile */
