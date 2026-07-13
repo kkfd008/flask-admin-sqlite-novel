@@ -25,7 +25,7 @@ class TestImporterMultiplePatternBug:
         content = '第1卷 开始\n内容一\n第2卷 继续\n内容二\n第3章 第三章\n内容三\n第4章 第四章\n内容四'
         data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
         client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
-        client.post('/novels/import/step2', data={'rule_ids': rule_ids}, follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'manual', 'rule_ids': rule_ids}, follow_redirects=True)
 
         client.post('/novels/import/step4', data={
             'title': '多模式测试',
@@ -78,7 +78,7 @@ class TestImporterMultiplePatternBug:
         content = '第1章 标题\n第一章内容\n第2章 标题\n第二章内容'
         data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
         client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
-        client.post('/novels/import/step2', data={'rule_ids': str(rule_id)}, follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'manual', 'rule_ids': str(rule_id)}, follow_redirects=True)
 
         client.post('/novels/import/step4', data={
             'title': '带分组测试',

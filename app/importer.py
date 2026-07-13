@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from werkzeug.utils import secure_filename
 from app.models import db, Novel, Chapter, ChapterRule, Category
 from app.auth import login_required
-from app.utils import DEFAULT_RULES
+from app.utils import DEFAULT_RULES, get_best_pattern, split_chapters, split_by_fixed_length
 
 importer_bp = Blueprint('importer', __name__, url_prefix='/novels/import')
 
@@ -25,7 +25,6 @@ def step1():
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
-        # 保存原始文件名（不含扩展名）用于显示
         raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
         session['import_original_filename'] = raw_name
 
@@ -35,6 +34,10 @@ def step1():
 
         with open(filepath, 'r', encoding=encoding, errors='replace') as f:
             content = f.read()
+
+        # 移除 BOM 头
+        if content and content[0] == '\ufeff':
+            content = content[1:]
 
         utf8_path = filepath + '.utf8'
         with open(utf8_path, 'w', encoding='utf-8') as f:
@@ -56,46 +59,83 @@ def step2():
 
     system_rules = ChapterRule.query.filter_by(category='系统').order_by(ChapterRule.sort_order).all()
     user_rules = ChapterRule.query.filter_by(category='用户').order_by(ChapterRule.sort_order).all()
+    enhanced_rules = ChapterRule.query.filter_by(category='增强').order_by(ChapterRule.sort_order).all()
 
     if request.method == 'POST':
-        rule_ids = request.form.getlist('rule_ids')
-        custom_pattern = request.form.get('custom_pattern')
+        mode = request.form.get('mode', 'auto')
 
-        patterns = []
-        if custom_pattern:
-            patterns.append(custom_pattern)
-        if rule_ids:
-            for rid in rule_ids:
-                if rid:
-                    rule = ChapterRule.query.get(int(rid))
-                    if rule:
-                        patterns.append(rule.pattern)
+        if mode == 'auto':
+            # 自动检测最佳规则
+            filepath = session['import_filepath']
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-        if not patterns:
-            patterns = [DEFAULT_RULES[0]['pattern']]
+            best_rule, best_pattern, match_count = get_best_pattern(content)
 
-        combined_pattern = '|'.join(f'(?:{p})' for p in patterns)
+            if best_pattern is None:
+                # 未找到合适规则，使用固定长度兜底
+                session['import_fallback'] = True
+                session['import_chapter_count'] = 0
+                return redirect(url_for('importer.step3'))
+
+            session['import_rule_ids'] = [str(best_rule.id)] if best_rule else []
+            session['import_pattern'] = best_pattern.pattern if best_pattern else ''
+            session['import_detected_rule'] = best_rule.name if best_rule else '未知'
+            session['import_detected_count'] = match_count
+            session['import_fallback'] = False
+        else:
+            # 手动选择规则
+            rule_ids = request.form.getlist('rule_ids')
+            custom_pattern = request.form.get('custom_pattern')
+
+            patterns = []
+            if custom_pattern:
+                patterns.append(custom_pattern)
+            if rule_ids:
+                for rid in rule_ids:
+                    if rid:
+                        rule = ChapterRule.query.get(int(rid))
+                        if rule:
+                            patterns.append(rule.pattern)
+
+            if not patterns:
+                patterns = [DEFAULT_RULES[0]['pattern']]
+
+            combined_pattern = '|'.join(f'(?:{p})' for p in patterns)
+            session['import_pattern'] = combined_pattern
+            session['import_rule_ids'] = rule_ids
+            session['import_fallback'] = False
 
         filepath = session['import_filepath']
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        lines = content.split('\n')
-        chapter_titles = []
-        for line in lines:
-            line = line.strip()
-            if line and re.match(combined_pattern, line):
-                chapter_titles.append(line)
+        if session.get('import_fallback'):
+            # 固定长度兜底
+            chapters = split_by_fixed_length(content)
+            session['import_chapter_titles'] = [{'title': t, 'index': i} for i, (t, _) in enumerate(chapters)]
+        else:
+            pattern = session.get('import_pattern', '')
+            try:
+                compiled = re.compile(pattern, re.MULTILINE)
+            except re.error:
+                compiled = re.compile(DEFAULT_RULES[0]['pattern'], re.MULTILINE)
 
-        session['import_pattern'] = combined_pattern
-        session['import_rule_ids'] = rule_ids
-        session['import_chapter_titles'] = [{'title': t, 'index': i} for i, t in enumerate(chapter_titles)]
+            lines = content.split('\n')
+            chapter_titles = []
+            for line in lines:
+                line = line.strip()
+                if line and compiled.match(line):
+                    chapter_titles.append(line)
+
+            session['import_chapter_titles'] = [{'title': t, 'index': i} for i, t in enumerate(chapter_titles)]
 
         return redirect(url_for('importer.step3'))
 
     return render_template('import/step2.html',
                            system_rules=system_rules,
-                           user_rules=user_rules)
+                           user_rules=user_rules,
+                           enhanced_rules=enhanced_rules)
 
 
 @importer_bp.route('/step3', methods=['GET', 'POST'])
@@ -134,20 +174,32 @@ def step4():
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
 
+        is_fallback = session.get('import_fallback', False)
         pattern = session.get('import_pattern', '')
-        if not pattern:
-            pattern = DEFAULT_RULES[0]['pattern']
-        # 重新从 rule_ids 构建：每个模式转为非捕获组再组合，避免内部捕获组扰乱 re.split 索引
-        rule_ids = session.get('import_rule_ids', [])
-        if rule_ids:
-            db_patterns = []
-            for rid in rule_ids:
-                if rid:
-                    rule = ChapterRule.query.get(int(rid))
-                    if rule:
-                        db_patterns.append(rule.pattern)
-            if db_patterns:
-                pattern = '|'.join(f'(?:{p})' for p in db_patterns)
+
+        if is_fallback:
+            chapters = split_by_fixed_length(content)
+        elif not pattern:
+            chapters = split_by_fixed_length(content)
+        else:
+            # 重新从 rule_ids 构建：每个模式转为非捕获组再组合，避免内部捕获组扰乱
+            rule_ids = session.get('import_rule_ids', [])
+            if rule_ids:
+                db_patterns = []
+                for rid in rule_ids:
+                    if rid:
+                        rule = ChapterRule.query.get(int(rid))
+                        if rule:
+                            db_patterns.append(rule.pattern)
+                if db_patterns:
+                    pattern = '|'.join(f'(?:{p})' for p in db_patterns)
+
+            try:
+                compiled = re.compile(pattern, re.MULTILINE)
+            except re.error:
+                compiled = re.compile(DEFAULT_RULES[0]['pattern'], re.MULTILINE)
+
+            chapters = split_chapters(content, compiled)
 
         novel = Novel(title=title, author=author.strip() if author else None)
         if category_id:
@@ -155,34 +207,17 @@ def step4():
         db.session.add(novel)
         db.session.commit()
 
-        # 使用 re.finditer 手动拆分，避免 re.split 捕获组索引错乱
-        matches = list(re.finditer(pattern, content, flags=re.MULTILINE))
-        parts = []
-        if not matches:
-            parts = [content]
-        else:
-            parts.append(content[:matches[0].start()])
-            for i, m in enumerate(matches):
-                parts.append(m.group(0))
-                end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-                parts.append(content[m.end():end])
-
         chapter_order = 0
-        preamble = parts[0].strip() if parts and parts[0] else ''
-        if preamble:
+        for ch_title, ch_body in chapters:
             chapter_order += 1
-            ch = Chapter(novel_id=novel.id, title='序章', content=preamble, order=chapter_order, word_count=len(preamble))
+            ch = Chapter(
+                novel_id=novel.id,
+                title=ch_title,
+                content=ch_body,
+                order=chapter_order,
+                word_count=len(ch_body)
+            )
             db.session.add(ch)
-
-        for i in range(1, len(parts), 2):
-            if i + 1 < len(parts):
-                ch_title = (parts[i] or '').strip()
-                ch_content = (parts[i + 1] or '').strip()
-                if not ch_title:
-                    continue
-                chapter_order += 1
-                ch = Chapter(novel_id=novel.id, title=ch_title, content=ch_content, order=chapter_order, word_count=len(ch_content))
-                db.session.add(ch)
 
         novel.chapter_count = chapter_order
         novel.word_count = sum(len(c.content) for c in novel.chapters)
@@ -193,13 +228,23 @@ def step4():
         session.pop('import_original_filename', None)
         session.pop('import_pattern', None)
         session.pop('import_chapter_titles', None)
+        session.pop('import_rule_ids', None)
+        session.pop('import_fallback', None)
+        session.pop('import_detected_rule', None)
+        session.pop('import_detected_count', None)
 
         return redirect(url_for('novels.detail', id=novel.id))
 
     chapter_count = len(session.get('import_chapter_titles', []))
     categories = Category.query.order_by(Category.sort_order).all()
     import_filename = session.get('import_original_filename', '')
+    detected_rule = session.get('import_detected_rule', '')
+    detected_count = session.get('import_detected_count', 0)
+    is_fallback = session.get('import_fallback', False)
     return render_template('import/step4.html',
                            chapter_count=chapter_count,
                            categories=categories,
-                           import_filename=import_filename)
+                           import_filename=import_filename,
+                           detected_rule=detected_rule,
+                           detected_count=detected_count,
+                           is_fallback=is_fallback)

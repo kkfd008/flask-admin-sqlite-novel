@@ -108,6 +108,20 @@
   </div>
 
   <form method="post">
+    <!-- 模式选择 -->
+    <div class="mb-3" style="display:flex; gap:12px; justify-content:center;">
+      <label class="mode-toggle" style="cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:20px; border:1px solid var(--border); background:var(--bg-elevated);">
+        <input type="radio" name="mode" value="auto" checked style="accent-color:var(--accent);" onchange="toggleMode()">
+        <span>自动检测</span>
+      </label>
+      <label class="mode-toggle" style="cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:20px; border:1px solid var(--border); background:var(--bg-elevated);">
+        <input type="radio" name="mode" value="manual" style="accent-color:var(--accent);" onchange="toggleMode()">
+        <span>手动选择</span>
+      </label>
+    </div>
+
+    <!-- 手动选择区域 -->
+    <div id="manualSection" style="display:none;">
     <!-- 系统规则 -->
     <div class="mb-3">
       <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
@@ -131,6 +145,25 @@
       <p class="text-muted" style="font-size:0.85rem;">暂无系统规则</p>
       {% endif %}
     </div>
+
+    <!-- 增强规则 -->
+    {% if enhanced_rules %}
+    <div class="mb-3">
+      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+        <span class="badge" style="background:#6C63FF; color:#fff; border-color:#6C63FF;">增强</span>
+        增强规则（Legado，可选 0-3 个）
+      </h4>
+      <div class="rule-list-container">
+        {% for rule in enhanced_rules %}
+        <label class="rule-item" style="color:var(--text-primary);">
+          <input type="checkbox" name="rule_ids" value="{{ rule.id }}" style="accent-color:var(--accent);" class="user-rule-cb">
+          <span class="rule-name">{{ rule.name }}</span>
+          <code class="rule-pattern">{{ rule.pattern }}</code>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- 自定义规则 -->
     {% if user_rules %}
@@ -156,6 +189,8 @@
       <label class="form-label" for="custom_pattern">自定义正则表达式</label>
       <input class="form-input" type="text" name="custom_pattern" id="custom_pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章">
     </div>
+    </div>
+
     <div class="step2-actions">
       <a href="{{ url_for('importer.step1') }}" class="btn btn-secondary">上一步</a>
       <button type="submit" class="btn btn-primary">下一步</button>
@@ -164,7 +199,14 @@
 </div>
 
 <script>
-// 限制用户规则最多勾选 3 个
+// 自动/手动模式切换
+function toggleMode() {
+  var manual = document.querySelector('input[name="mode"][value="manual"]');
+  var section = document.getElementById('manualSection');
+  section.style.display = manual.checked ? 'block' : 'none';
+}
+
+// 限制增强规则和用户规则最多勾选 3 个
 (function() {
   const cbs = document.querySelectorAll('.user-rule-cb');
   cbs.forEach(cb => {

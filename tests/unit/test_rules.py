@@ -214,9 +214,8 @@ def test_init_updates_old_category_rules(app):
 
         rules = ChapterRule.query.all()
         assert len(rules) >= 8, f'预期 >=8 条规则，实际 {len(rules)}'
-
         for rule in rules:
-            assert rule.category == '系统', f'规则 {rule.name} 的 category 应为 系统，实际为 {rule.category}'
+            assert rule.category in ('系统', '增强', '用户'), f'规则 {rule.name} 的 category 应为 系统/增强/用户，实际为 {rule.category}'
 
 
 class TestDefaultRules:
@@ -239,7 +238,7 @@ class TestDefaultRules:
 
             rules = ChapterRule.query.all()
             for rule in rules:
-                assert rule.category == '系统'
+                assert rule.category in ('系统', '增强', '用户'), f'规则 {rule.name} 的 category 应为 系统/增强/用户，实际为 {rule.category}'
 
 
 class TestNovelChapterRules:

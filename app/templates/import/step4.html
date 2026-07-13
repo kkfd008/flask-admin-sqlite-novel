@@ -121,6 +121,16 @@
   <div class="chapter-count-box">
     <p class="chapter-count-number">{{ chapter_count }}</p>
     <p class="chapter-count-label">个章节将被导入</p>
+    {% if detected_rule %}
+    <p class="chapter-count-label" style="margin-top:8px; color:var(--accent);">
+      检测规则：{{ detected_rule }}（匹配 {{ detected_count }} 个章节）
+    </p>
+    {% endif %}
+    {% if is_fallback %}
+    <p class="chapter-count-label" style="margin-top:8px; color:#FF9500;">
+      未匹配到章节规则，将使用固定长度分割
+    </p>
+    {% endif %}
   </div>
 
   <form method="post">

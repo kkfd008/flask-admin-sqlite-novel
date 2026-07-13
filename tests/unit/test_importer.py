@@ -167,6 +167,7 @@ class TestImporter:
         client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
 
         response = client.post('/novels/import/step2', data={
+            'mode': 'manual',
             'custom_pattern': '^节\\d+',
         }, follow_redirects=True)
 
