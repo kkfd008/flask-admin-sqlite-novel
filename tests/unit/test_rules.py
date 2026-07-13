@@ -162,6 +162,36 @@ class TestChapterRulesCRUD:
             assert ChapterRule.query.get(rule_id) is not None
 
 
+def test_disabled_system_rule_still_visible(client, app):
+    """系统规则禁用后仍然显示在列表中，只是状态变为禁用"""
+    rule_id = None
+    with app.app_context():
+        from app.models import db, User, ChapterRule
+        user = User(username='admin', password='admin123')
+        rule = ChapterRule(name='可见规则', pattern='^visible$', category='系统', enabled=True)
+        db.session.add_all([user, rule])
+        db.session.commit()
+        rule_id = rule.id
+
+    client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    # 先确认规则在列表中可见
+    response = client.get('/rules', follow_redirects=True)
+    assert response.status_code == 200
+    data = response.data.decode('utf-8')
+    assert '可见规则' in data
+
+    # 禁用规则
+    client.post(f'/rules/{rule_id}/toggle', follow_redirects=True)
+
+    # 禁用后仍然可见
+    response = client.get('/rules', follow_redirects=True)
+    assert response.status_code == 200
+    data = response.data.decode('utf-8')
+    assert '可见规则' in data, '禁用后的系统规则应该仍然显示在列表中'
+    assert '启用' in data, '禁用后的按钮应该显示"启用"'
+
+
 class TestDefaultRules:
     def test_default_rules_count(self, app):
         with app.app_context():
