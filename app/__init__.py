@@ -1,7 +1,19 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 
 db = SQLAlchemy()
+
+
+class AuthModelView(ModelView):
+    def is_accessible(self):
+        from flask import session
+        return 'user_id' in session
+
+    def inaccessible_callback(self, name, **kwargs):
+        from flask import redirect, url_for
+        return redirect(url_for('auth.login'))
 
 
 def create_app(config=None):
@@ -41,5 +53,21 @@ def create_app(config=None):
     app.register_blueprint(reading_bp)
     app.register_blueprint(editor_bp)
     app.register_blueprint(importer_bp)
+
+    admin = Admin(app, name='Novel Admin')
+
+    from app.models import User, Category, Novel, Chapter, ChapterRule, NovelChapterRule, Tag, Favorite, Rating, ReadingProgress, Bookmark
+
+    admin.add_view(AuthModelView(User, db.session))
+    admin.add_view(AuthModelView(Category, db.session))
+    admin.add_view(AuthModelView(Novel, db.session))
+    admin.add_view(AuthModelView(Chapter, db.session))
+    admin.add_view(AuthModelView(ChapterRule, db.session))
+    admin.add_view(AuthModelView(NovelChapterRule, db.session))
+    admin.add_view(AuthModelView(Tag, db.session))
+    admin.add_view(AuthModelView(Favorite, db.session))
+    admin.add_view(AuthModelView(Rating, db.session))
+    admin.add_view(AuthModelView(ReadingProgress, db.session))
+    admin.add_view(AuthModelView(Bookmark, db.session))
 
     return app
