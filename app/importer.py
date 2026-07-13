@@ -50,19 +50,27 @@ def step2():
     if 'import_filepath' not in session:
         return redirect(url_for('importer.step1'))
 
-    rules = ChapterRule.query.filter_by(enabled=True).order_by(ChapterRule.sort_order).all()
+    system_rules = ChapterRule.query.filter_by(category='系统').order_by(ChapterRule.sort_order).all()
+    user_rules = ChapterRule.query.filter_by(category='用户').order_by(ChapterRule.sort_order).all()
 
     if request.method == 'POST':
-        selected_rule_id = request.form.get('rule_id')
+        rule_ids = request.form.getlist('rule_ids')
         custom_pattern = request.form.get('custom_pattern')
 
-        if selected_rule_id:
-            rule = ChapterRule.query.get(selected_rule_id)
-            pattern = rule.pattern
-        elif custom_pattern:
-            pattern = custom_pattern
-        else:
-            pattern = DEFAULT_RULES[0]['pattern']
+        patterns = []
+        if custom_pattern:
+            patterns.append(custom_pattern)
+        if rule_ids:
+            for rid in rule_ids:
+                if rid:
+                    rule = ChapterRule.query.get(int(rid))
+                    if rule:
+                        patterns.append(rule.pattern)
+
+        if not patterns:
+            patterns = [DEFAULT_RULES[0]['pattern']]
+
+        combined_pattern = '|'.join(f'(?:{p})' for p in patterns)
 
         filepath = session['import_filepath']
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -72,15 +80,17 @@ def step2():
         chapter_titles = []
         for line in lines:
             line = line.strip()
-            if line and re.match(pattern, line):
+            if line and re.match(combined_pattern, line):
                 chapter_titles.append(line)
 
-        session['import_pattern'] = pattern
+        session['import_pattern'] = combined_pattern
         session['import_chapter_titles'] = [{'title': t, 'index': i} for i, t in enumerate(chapter_titles)]
 
         return redirect(url_for('importer.step3'))
 
-    return render_template('import/step2.html', rules=rules)
+    return render_template('import/step2.html',
+                           system_rules=system_rules,
+                           user_rules=user_rules)
 
 
 @importer_bp.route('/step3', methods=['GET', 'POST'])

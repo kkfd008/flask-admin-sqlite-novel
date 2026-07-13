@@ -7,7 +7,7 @@
   <p>第二步：选择章节识别规则</p>
 </div>
 
-<div class="card" style="max-width:600px; margin:0 auto;">
+<div class="card" style="max-width:700px; margin:0 auto;">
   <div style="display:flex; gap:4px; margin-bottom:24px;">
     <span class="badge badge-outline">1. 上传</span>
     <span style="color:var(--border);">→</span>
@@ -19,15 +19,49 @@
   </div>
 
   <form method="post">
-    <div class="form-group">
-      <label class="form-label" for="rule_id">选择预设规则</label>
-      <select class="form-select" name="rule_id" id="rule_id">
-        <option value="">-- 选择规则 --</option>
-        {% for rule in rules %}
-        <option value="{{ rule.id }}">{{ rule.name }} ({{ rule.pattern }})</option>
+    <!-- 系统规则 -->
+    <div class="mb-3">
+      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+        <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">系统</span>
+        系统规则（全部显示，启用规则默认勾选）
+      </h4>
+      {% if system_rules %}
+      <div style="display:flex; flex-direction:column; gap:6px; background:var(--bg-elevated); border-radius:var(--radius-sm); padding:12px;">
+        {% for rule in system_rules %}
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px; border-radius:4px; font-size:0.9rem; {% if rule.enabled %}color:var(--text-primary);{% else %}color:var(--text-muted);{% endif %}">
+          <input type="checkbox" name="rule_ids" value="{{ rule.id }}" {% if rule.enabled %}checked{% endif %} style="accent-color:var(--accent);">
+          <span style="flex:1;">{{ rule.name }}</span>
+          <code style="background:var(--bg-surface); padding:2px 8px; border-radius:4px; font-size:0.75rem; color:var(--text-secondary);">{{ rule.pattern }}</code>
+          {% if not rule.enabled %}
+          <span class="badge badge-outline" style="font-size:0.7rem;">已禁用</span>
+          {% endif %}
+        </label>
         {% endfor %}
-      </select>
+      </div>
+      {% else %}
+      <p class="text-muted" style="font-size:0.85rem;">暂无系统规则</p>
+      {% endif %}
     </div>
+
+    <!-- 自定义规则 -->
+    {% if user_rules %}
+    <div class="mb-3">
+      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+        <span class="badge badge-outline">用户</span>
+        用户规则（可选 0-3 个）
+      </h4>
+      <div style="display:flex; flex-direction:column; gap:6px; background:var(--bg-elevated); border-radius:var(--radius-sm); padding:12px;">
+        {% for rule in user_rules[:4] %}
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px; border-radius:4px; font-size:0.9rem; color:var(--text-primary);">
+          <input type="checkbox" name="rule_ids" value="{{ rule.id }}" style="accent-color:var(--accent);" class="user-rule-cb">
+          <span style="flex:1;">{{ rule.name }}</span>
+          <code style="background:var(--bg-surface); padding:2px 8px; border-radius:4px; font-size:0.75rem; color:var(--text-secondary);">{{ rule.pattern }}</code>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div style="text-align:center; color:var(--text-muted); margin:8px 0; font-size:0.85rem;">— 或者 —</div>
     <div class="form-group">
       <label class="form-label" for="custom_pattern">自定义正则表达式</label>
@@ -39,5 +73,20 @@
     </div>
   </form>
 </div>
+
+<script>
+// 限制用户规则最多勾选 3 个
+(function() {
+  const cbs = document.querySelectorAll('.user-rule-cb');
+  cbs.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const checked = document.querySelectorAll('.user-rule-cb:checked');
+      if (checked.length > 3) {
+        cb.checked = false;
+      }
+    });
+  });
+})();
+</script>
 
 {% endblock %}
