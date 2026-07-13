@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, session
+from flask import Blueprint, render_template, redirect, url_for, request, session, flash
 from app.models import db, Rating, Novel
 from app.auth import login_required
 from app.utils import calculate_average_rating
@@ -10,8 +10,13 @@ ratings_bp = Blueprint('ratings', __name__)
 @login_required
 def rate(novel_id):
     user_id = session.get('user_id', 1)
-    
-    score = int(request.form.get('score'))
+
+    score_str = request.form.get('score')
+    if not score_str:
+        flash('请选择评分星级', 'error')
+        return redirect(url_for('novels.detail', id=novel_id))
+
+    score = int(score_str)
     comment = request.form.get('comment')
     
     existing_rating = Rating.query.filter_by(user_id=user_id, novel_id=novel_id).first()
