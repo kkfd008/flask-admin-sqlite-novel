@@ -31,8 +31,11 @@ class TestReaderBottomNav:
 
         # 底部导航栏应存在
         assert '上一章' in html or 'prev' in html.lower()
-        assert '目录' in html or '返回' in html
+        assert '返回目录' in html
         assert '下一章' in html or 'next' in html.lower()
+
+        # "返回目录" 应指向章节目录分页页，而非书籍详情页
+        assert f'/novels/{novel_id}/chapter' in html
 
         # 内容区域应有底部内边距，防止被底部栏遮挡
         assert 'padding-bottom' in html or 'reader-content' in html

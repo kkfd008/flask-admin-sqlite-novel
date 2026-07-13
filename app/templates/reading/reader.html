@@ -510,7 +510,7 @@
   {% endif %}
 
   <div class="reader-nav-center">
-    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="reader-nav-dir">返回目录</a>
+    <a href="{{ url_for('novels.chapter_directory', id=novel.id) }}" class="reader-nav-dir">返回目录</a>
   </div>
 
   {% if next_chapter %}

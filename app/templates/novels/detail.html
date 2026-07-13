@@ -153,11 +153,15 @@
   gap: 6px;
   margin-bottom: 14px;
 }
+.rating-stars-row {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
 .rating-stars-row label {
   cursor: pointer;
   font-size: 2rem;
-  color: var(--star-color);
-  transition: transform 0.15s ease;
+  color: var(--border);
+  transition: transform 0.15s ease, color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   line-height: 1;
@@ -167,6 +171,13 @@
 }
 .rating-stars-row input[type="radio"] {
   display: none;
+}
+.rating-stars-row input[type="radio"]:checked ~ label {
+  color: var(--star-color);
+}
+.rating-stars-row label:hover,
+.rating-stars-row label:hover ~ label {
+  color: var(--star-color);
 }
 .rating-comment {
   margin-bottom: 14px;
@@ -225,9 +236,13 @@
   font-weight: 500;
   border-radius: 20px;
   border: 1px solid;
+  opacity: 0.45;
   transition: opacity var(--transition);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+}
+.tag-manage-scroll .tag-chip:has(input:checked) {
+  opacity: 1;
 }
 .tag-manage-scroll .tag-chip input[type="checkbox"] {
   display: none;
@@ -548,10 +563,8 @@
       <form method="post" action="{{ url_for('ratings.rate', novel_id=novel.id) }}">
         <div class="rating-stars-row">
           {% for i in range(1, 6) %}
-          <label>
-            <input type="radio" name="score" value="{{ i }}" {% if novel.user_rating == i %}checked{% endif %}>
-            ★
-          </label>
+          <input type="radio" name="score" value="{{ i }}" id="star{{ i }}" {% if novel.user_rating == i %}checked{% endif %}>
+          <label for="star{{ i }}">★</label>
           {% endfor %}
         </div>
         <div class="rating-comment">
@@ -559,10 +572,10 @@
         </div>
         <div class="rating-buttons">
           <button type="submit" class="btn btn-primary btn-sm">提交评分</button>
-          <form method="post" action="{{ url_for('ratings.delete_rating', novel_id=novel.id) }}" style="display:inline;">
-            <button type="submit" class="btn btn-secondary btn-sm">清除评分</button>
-          </form>
         </div>
+      </form>
+      <form method="post" action="{{ url_for('ratings.delete_rating', novel_id=novel.id) }}" style="margin-top:8px;">
+        <button type="submit" class="btn btn-secondary btn-sm">清除评分</button>
       </form>
     </div>
 
@@ -572,7 +585,7 @@
       <form method="post" action="{{ url_for('novels.update_tags', id=novel.id) }}">
         <div class="tag-manage-scroll">
           {% for tag in all_tags %}
-          <label class="tag-chip" style="background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}33; {% if tag in novel.tags %}opacity:1;{% else %}opacity:0.5;{% endif %}">
+          <label class="tag-chip" style="background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}33;">
             <input type="checkbox" name="tag_ids" value="{{ tag.id }}" {% if tag in novel.tags %}checked{% endif %}>
             {{ tag.name }}
           </label>
