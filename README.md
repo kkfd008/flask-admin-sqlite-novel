@@ -166,6 +166,156 @@ flask-admin-sqlite-novel/
 | `/search` | GET | 全文搜索 |
 | `/admin` | GET | Flask-Admin 后台 |
 
+## 初始化与部署
+
+### 一键初始化
+
+首次部署时执行初始化脚本，自动完成数据库创建、默认用户创建和默认规则导入：
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 执行初始化
+python init_database.py
+```
+
+`init_database.py` 脚本内容：
+
+```python
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from app import create_app, db
+from app.models import User, Category
+from app.utils import init_default_rules
+
+def init_database():
+    """初始化数据库：创建表、默认用户、默认规则"""
+    os.makedirs('instance', exist_ok=True)
+    os.makedirs('uploads', exist_ok=True)
+
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'novel.db')
+    app = create_app({
+        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
+    })
+
+    with app.app_context():
+        # 1. 创建所有数据表
+        db.create_all()
+        print('[OK] 数据表创建完成')
+
+        # 2. 创建默认管理员用户
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', password='admin123')
+            db.session.add(admin)
+            db.session.commit()
+            print('[OK] 默认管理员创建完成 (admin / admin123)')
+        else:
+            print('[SKIP] 管理员用户已存在')
+
+        # 3. 初始化 8 大类默认章节规则
+        init_default_rules()
+        print('[OK] 默认章节规则初始化完成')
+
+        # 4. 创建默认分类
+        default_categories = ['玄幻', '武侠', '都市', '历史', '科幻', '言情', '悬疑', '其它']
+        for name in default_categories:
+            if not Category.query.filter_by(name=name).first():
+                db.session.add(Category(name=name))
+        db.session.commit()
+        print('[OK] 默认分类创建完成')
+
+        print('\n初始化完成！运行 python run.py 启动服务')
+
+if __name__ == '__main__':
+    init_database()
+```
+
+### Docker 部署
+
+```dockerfile
+FROM python:3.10-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+RUN python init_database.py
+
+EXPOSE 5000
+CMD ["python", "run.py"]
+```
+
+```bash
+# 构建镜像
+docker build -t novel-system .
+
+# 运行容器（数据持久化）
+docker run -d -p 5000:5000 -v $(pwd)/instance:/app/instance -v $(pwd)/uploads:/app/uploads --name novel novel-system
+
+# 查看日志
+docker logs -f novel
+```
+
+### 生产环境部署（Gunicorn + Nginx）
+
+```bash
+# 安装 Gunicorn
+pip install gunicorn
+
+# 启动（4 个 worker 进程）
+gunicorn -w 4 -b 127.0.0.1:5000 'app:create_app()'
+```
+
+Nginx 反向代理配置：
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /static/ {
+        alias /path/to/novel-system/static/;
+        expires 7d;
+    }
+}
+```
+
+### 数据备份
+
+```bash
+# 备份 SQLite 数据库（单文件，直接复制即可）
+cp instance/novel.db instance/novel.db.bak.$(date +%Y%m%d)
+
+# 备份上传文件
+tar -czf uploads_backup_$(date +%Y%m%d).tar.gz uploads/
+
+# 设置定时备份（crontab，每天凌晨 2 点）
+# 0 2 * * * cp /path/to/instance/novel.db /path/to/backup/novel.db.$(date +\%Y\%m\%d)
+```
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `SECRET_KEY` | `dev-secret-key` | Flask 密钥（生产环境必须修改） |
+| `DATABASE_URL` | `sqlite:///instance/novel.db` | 数据库连接地址 |
+| `UPLOAD_FOLDER` | `uploads` | TXT 上传目录 |
+| `MAX_CONTENT_LENGTH` | `52428800` | 最大上传大小（字节，默认 50MB） |
+
 ## 配置说明
 
 配置文件位于 `config.py`：
