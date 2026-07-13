@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session
-from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule
+from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule, Favorite, Rating, Bookmark, ReadingProgress
 from app.auth import login_required
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
@@ -48,7 +48,14 @@ def detail(id):
 def delete(id):
     novel = Novel.query.get_or_404(id)
     
+    # 级联删除所有关联数据，避免 NOT NULL constraint 错误
+    Chapter.query.filter_by(novel_id=id).delete()
     NovelChapterRule.query.filter_by(novel_id=id).delete()
+    Favorite.query.filter_by(novel_id=id).delete()
+    Rating.query.filter_by(novel_id=id).delete()
+    Bookmark.query.filter_by(novel_id=id).delete()
+    ReadingProgress.query.filter_by(novel_id=id).delete()
+    
     db.session.delete(novel)
     db.session.commit()
     
