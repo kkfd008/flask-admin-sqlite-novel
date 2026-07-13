@@ -3,3 +3,4 @@ Flask-SQLAlchemy>=3.0
 Flask-Admin>=1.6
 chardet>=5.0
 Werkzeug>=2.0
+requests>=2.25.0
