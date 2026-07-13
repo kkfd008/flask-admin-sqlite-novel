@@ -301,6 +301,126 @@ class TestImporter:
             assert novel.category_id == cat_id
             assert novel.chapter_count == 2
 
+    def test_step4_chapter_content_and_word_count(self, app, client):
+        """导入后章节应有内容且 word_count 不为 0"""
+        cat_id = None
+        sys_rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            sys_rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 模拟真实小说内容
+        content = '第1章 开始\n这是第一章内容，有很多文字。\n第二行内容。\n第2章 继续\n这是第二章内容，也有很多文字。\n第二行。'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(sys_rule_id)}, follow_redirects=True)
+
+        response = client.post('/novels/import/step4', data={
+            'title': '测试小说',
+            'author': '作者',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            novel = Novel.query.filter_by(title='测试小说').first()
+            assert novel is not None
+            assert novel.chapter_count == 2
+
+            chapters = Chapter.query.filter_by(novel_id=novel.id).order_by(Chapter.order).all()
+            assert len(chapters) == 2
+
+            for ch in chapters:
+                assert ch.word_count > 0, f'章节 {ch.title} 的 word_count 应为正数，实际为 {ch.word_count}'
+                assert ch.content, f'章节 {ch.title} 应有内容'
+                assert len(ch.content) > 0, f'章节 {ch.title} 的内容不应为空'
+
+            # 总字数应为各章字数之和
+            assert novel.word_count == sum(c.word_count for c in chapters)
+
+    def test_step4_import_uses_actual_content_not_chapter_titles(self, app, client):
+        """导入时使用 re.split 拆分实际内容，而非仅用 session 中的章节标题"""
+        cat_id = None
+        sys_rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章.*$', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            sys_rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 标题\n第一章具体内容\n第2章 标题\n第二章具体内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(sys_rule_id)}, follow_redirects=True)
+
+        client.post('/novels/import/step4', data={
+            'title': '测试小说2',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            novel = Novel.query.filter_by(title='测试小说2').first()
+            chapters = Chapter.query.filter_by(novel_id=novel.id).order_by(Chapter.order).all()
+
+            assert len(chapters) == 2
+            assert chapters[0].content.strip() == '第一章具体内容', f'章节内容应为正文，实际: {chapters[0].content!r}'
+            assert chapters[1].content.strip() == '第二章具体内容'
+            assert chapters[0].word_count == len('第一章具体内容')
+            assert chapters[1].word_count == len('第二章具体内容')
+
+    def test_step4_import_with_preamble(self, app, client):
+        """有前导文本时，导入创建序章"""
+        cat_id = None
+        sys_rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            sys_rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '前言内容\n这是前言\n第1章 开始\n第一章内容\n第2章 继续\n第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(sys_rule_id)}, follow_redirects=True)
+
+        client.post('/novels/import/step4', data={
+            'title': '有前言的小说',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            novel = Novel.query.filter_by(title='有前言的小说').first()
+            chapters = Chapter.query.filter_by(novel_id=novel.id).order_by(Chapter.order).all()
+
+            assert len(chapters) == 3  # 序章 + 2 章
+            assert chapters[0].title == '序章'
+            assert '前言' in chapters[0].content
+            assert chapters[0].word_count > 0
+
     def test_re_split_handles_none_elements(self, app):
         """re.split 返回 None 元素时不应抛出 AttributeError"""
         import re

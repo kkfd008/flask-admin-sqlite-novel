@@ -149,7 +149,7 @@ def step4():
         preamble = parts[0].strip() if parts and parts[0] else ''
         if preamble:
             chapter_order += 1
-            ch = Chapter(novel_id=novel.id, title='序章', content=preamble, order=chapter_order)
+            ch = Chapter(novel_id=novel.id, title='序章', content=preamble, order=chapter_order, word_count=len(preamble))
             db.session.add(ch)
 
         for i in range(1, len(parts), 2):
@@ -159,7 +159,7 @@ def step4():
                 if not ch_title:
                     continue
                 chapter_order += 1
-                ch = Chapter(novel_id=novel.id, title=ch_title, content=ch_content, order=chapter_order)
+                ch = Chapter(novel_id=novel.id, title=ch_title, content=ch_content, order=chapter_order, word_count=len(ch_content))
                 db.session.add(ch)
 
         novel.chapter_count = chapter_order
