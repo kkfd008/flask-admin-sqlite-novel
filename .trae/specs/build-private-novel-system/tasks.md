@@ -15,9 +15,10 @@
   - [ ] SubTask 2.5: `ReadingProgress` 模型（id、user_id、novel_id、chapter_id、scroll_position、updated_at）
   - [ ] SubTask 2.6: `Bookmark` 模型（id、user_id、chapter_id、title、position、created_at）
   - [ ] SubTask 2.7: `ChapterRule` 模型（id、name、pattern、category、description、enabled、is_default、sort_order）
-  - [ ] SubTask 2.8: `Tag` 模型（id、name、color） + `novel_tags` 多对多关联表
-  - [ ] SubTask 2.9: `Favorite` 模型（id、user_id、novel_id、created_at）
-  - [ ] SubTask 2.10: `Rating` 模型（id、user_id、novel_id、score、comment、created_at、updated_at）
+  - [ ] SubTask 2.8: `NovelChapterRule` 模型（id、novel_id、pattern、description、created_at、updated_at）— 每本书独立章节拆分规则
+  - [ ] SubTask 2.9: `Tag` 模型（id、name、color） + `novel_tags` 多对多关联表
+  - [ ] SubTask 2.10: `Favorite` 模型（id、user_id、novel_id、created_at）
+  - [ ] SubTask 2.11: `Rating` 模型（id、user_id、novel_id、score、comment、created_at、updated_at）
 
 - [ ] Task 3: 实现登录鉴权模块 (`app/auth.py`)
   - [ ] SubTask 3.1: `/login` GET 渲染登录页 / POST 校验用户名密码并创建 session

@@ -30,7 +30,7 @@
 
 ## 1. 总览
 
-系统共包含 **10 张数据表** + **1 张多对多关联表**，围绕"小说阅读"核心业务展开：
+系统共包含 **11 张数据表** + **1 张多对多关联表**，围绕"小说阅读"核心业务展开：
 
 | 表名 | 中文名 | 说明 |
 |------|--------|------|
@@ -38,7 +38,8 @@
 | `category` | 分类表 | 小说分类（如：玄幻、科幻） |
 | `novel` | 小说表 | 小说基本信息（标题、作者、分类等） |
 | `chapter` | 章节表 | 每章标题与正文内容 |
-| `chapter_rule` | 章节拆分规则表 | TXT 导入时的章节标题正则规则 |
+| `chapter_rule` | 章节拆分规则表 | TXT 导入时的章节标题正则规则（全局规则） |
+| `novel_chapter_rule` | 小说章节规则表 | 每本书独立的章节拆分规则（长期保存） |
 | `reading_progress` | 阅读进度表 | 记录每本书读到第几章、滚动位置 |
 | `bookmark` | 书签表 | 章节内书签，含位置信息 |
 | `tag` | 标签表 | 可自由定义的标签 |
@@ -183,6 +184,29 @@ TXT 导入时用于匹配章节标题的正则规则库。可启用/禁用，可
 | 纯数字 | 纯数字章节 | `^\d+\.?\s+.*$` | 1. xxx |
 | 分节阅读 | 分节阅读 | `^(分[页节章段]阅读\|第\d+[页节]).*$` | 分节阅读一 |
 | 卷/部/篇 | 卷部篇回 | `^第?[零一二三四五六七八九十百千万\d]+[卷部篇回场话集].*$` | 第一卷、第1回 |
+
+---
+
+### 3.5.1 novel_chapter_rule（小说章节规则表）
+
+每本小说独立的章节拆分规则，长期保存。在导入过程中可添加自定义规则（只对本书有效）。
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 规则 ID |
+| `novel_id` | INTEGER | FOREIGN KEY → novel.id, UNIQUE NOT NULL, ON DELETE CASCADE | 关联的小说 ID（一对一） |
+| `pattern` | VARCHAR(500) | NOT NULL | 正则表达式（如 `^第\d+章.*$`） |
+| `description` | VARCHAR(500) | NULL | 规则说明 |
+| `created_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+| `updated_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | 最后修改时间 |
+
+**唯一约束：** `novel_id` 唯一，即每本书只能有一条独立规则
+
+**索引：** `idx_novel_chapter_rule_novel_id`
+
+**与 chapter_rule 的区别：**
+- `chapter_rule`：全局规则，可复用于多本书
+- `novel_chapter_rule`：每本书独立规则，只对本书有效，长期保存
 
 ---
 

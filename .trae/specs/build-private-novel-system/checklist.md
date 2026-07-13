@@ -1,7 +1,7 @@
 # Checklist
 
 - [ ] 项目骨架与依赖：`requirements.txt`、`config.py`、`run.py`、`app/__init__.py` 已创建并配置正确
-- [ ] 数据模型：`User`、`Category`、`Novel`、`Chapter`、`ReadingProgress`、`Bookmark`、`ChapterRule`、`Tag`、`Favorite`、`Rating` 均已定义且字段完整
+- [ ] 数据模型：`User`、`Category`、`Novel`、`Chapter`、`ReadingProgress`、`Bookmark`、`ChapterRule`、`NovelChapterRule`、`Tag`、`Favorite`、`Rating` 均已定义且字段完整
 - [ ] 登录鉴权：根路径 `/` 重定向到登录页；除 `/login` 与静态资源外所有路由需登录
 - [ ] 登录页：正确凭证登录成功跳转 `/dashboard`；错误凭证提示错误信息
 - [ ] 登出：登出后清除 session 并重定向到 `/login`
@@ -15,6 +15,8 @@
 - [ ] 规则增删改：新增、编辑、删除规则可用
 - [ ] 规则启用/禁用：禁用后不再出现在导入页规则下拉框
 - [ ] 恢复默认规则：可补齐缺失的内置默认规则，不影响自定义规则
+- [ ] 书籍章节规则：每本书可查看、编辑、删除独立的章节拆分规则（长期保存）
+- [ ] 导入保存规则：导入 Step 2 填入自定义正则并勾选"保存为本书规则"后，规则长期保存
 - [ ] 导入 Step 1：上传文件后自动检测编码并转换为 UTF-8，标题默认取文件名（不含扩展名），可进入下一步
 - [ ] 导入 Step 2：可选择章节拆分规则或填入自定义正则，每本书独立选择
 - [ ] 导入 Step 3：显示匹配出的章节标题列表（含标题、字数、内容预览），可删除章节并重新生成
