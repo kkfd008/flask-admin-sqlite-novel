@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head><title>{{ novel.title }} - Rules</title></head>
+<body>
+<h1>{{ novel.title }} - Chapter Rules</h1>
+{% for rule in rules %}
+<div>{{ rule.pattern }} - {{ rule.description }}</div>
+{% endfor %}
+</body>
+</html>

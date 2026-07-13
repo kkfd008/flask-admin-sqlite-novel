@@ -22,7 +22,7 @@ def login():
             session['user_id'] = user.id
             return redirect(url_for('novels.list'))
     
-    return render_template('login.html')
+    return render_template('auth/login.html')
 
 
 @auth_bp.route('/logout')

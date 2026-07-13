@@ -65,12 +65,12 @@ class TestAuthLogin:
 
 class TestAuthPermission:
     def test_unauthenticated_access_redirect(self, client):
-        response = client.get('/dashboard', follow_redirects=False)
+        response = client.get('/novels/', follow_redirects=False)
         assert response.status_code == 302
         assert '/login' in response.location
 
     def test_unauthenticated_access_novels_redirect(self, client):
-        response = client.get('/novels', follow_redirects=False)
+        response = client.get('/novels/', follow_redirects=False)
         assert response.status_code == 302
         assert '/login' in response.location
 
@@ -86,5 +86,5 @@ class TestAuthPermission:
             'password': 'admin123'
         }, follow_redirects=True)
 
-        response = client.get('/dashboard', follow_redirects=True)
+        response = client.get('/novels/', follow_redirects=True)
         assert response.status_code == 200
