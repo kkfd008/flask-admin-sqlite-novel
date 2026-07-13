@@ -12,7 +12,7 @@
   {% for novel in novels %}
   <a href="{{ url_for('novels.detail', id=novel.id) }}" class="card fav-card" style="text-decoration:none; display:block; padding:20px;">
     <div class="flex-between mb-1" style="flex-wrap:wrap; gap:8px;">
-      <h3 style="font-family:var(--font-display); font-size:1.05rem; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">{{ novel.title }}</h3>
+      <h3 style="font-family:var(--font-display); font-size:1.05rem; font-weight:600; color:var(--text-primary); overflow-wrap:break-word; word-break:break-word; line-height:1.35;">{{ novel.title }}</h3>
       {% if novel.user_rating %}
       <span class="stars" style="flex-shrink:0;">
         {% for i in range(5) %}
@@ -53,7 +53,6 @@
   }
   .fav-card h3 {
     font-size: 1rem !important;
-    max-width: 100% !important;
   }
 }
 </style>
