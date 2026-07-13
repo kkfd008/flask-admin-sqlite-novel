@@ -22,6 +22,7 @@ def create_app(config=None):
     from app.rules import rules_bp
     from app.novels import novels_bp
     from app.ratings import ratings_bp
+    from app.favorites import favorites_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(categories_bp)
@@ -29,5 +30,6 @@ def create_app(config=None):
     app.register_blueprint(rules_bp)
     app.register_blueprint(novels_bp)
     app.register_blueprint(ratings_bp)
+    app.register_blueprint(favorites_bp)
 
     return app
