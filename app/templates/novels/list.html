@@ -2,12 +2,58 @@
 {% block title %}书架 · 墨斋{% endblock %}
 {% block content %}
 
-<div class="page-header">
-  <h1>书架</h1>
-  <p>共 {{ novels|length }} 部作品</p>
-</div>
+<!-- ============================================================
+   Mobile-first filter: chip-style scrollable bar (≤430px)
+   Desktop: dropdown toolbar (≥769px)
+============================================================ -->
 
-<div class="toolbar">
+<!-- Mobile Filter Chips (hidden on desktop) -->
+<form method="get" id="filter-form" class="mobile-filter-bar">
+  <input type="hidden" name="category_id" value="{{ request.args.get('category_id', '') }}">
+  <input type="hidden" name="tag_id" value="{{ request.args.get('tag_id', '') }}">
+  <input type="hidden" name="sort_by" value="{{ request.args.get('sort_by', 'created_at') }}">
+  <input type="hidden" name="sort_order" value="{{ request.args.get('sort_order', 'desc') }}">
+
+  <div class="chip-section">
+    <span class="chip-section-label">分类</span>
+    <div class="chip-scroll">
+      <button type="button" class="chip {% if not request.args.get('category_id') %}active{% endif %}" onclick="setFilter('category_id', '')">全部</button>
+      {% for cat in categories %}
+      <button type="button" class="chip {% if request.args.get('category_id')|string == cat.id|string %}active{% endif %}" onclick="setFilter('category_id', '{{ cat.id }}')">{{ cat.name }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="chip-section">
+    <span class="chip-section-label">标签</span>
+    <div class="chip-scroll">
+      <button type="button" class="chip {% if not request.args.get('tag_id') %}active{% endif %}" onclick="setFilter('tag_id', '')">全部</button>
+      {% for tag in tags %}
+      <button type="button" class="chip {% if request.args.get('tag_id')|string == tag.id|string %}active{% endif %}" onclick="setFilter('tag_id', '{{ tag.id }}')">{{ tag.name }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Mobile Sort Row -->
+  <div class="mobile-sort-row">
+    <select name="sort_by_display" class="form-select mobile-sort-select" onchange="syncSort(this)">
+      <option value="created_at" {% if request.args.get('sort_by','created_at')=='created_at' %}selected{% endif %}>按添加时间</option>
+      <option value="title" {% if request.args.get('sort_by')=='title' %}selected{% endif %}>按标题</option>
+      <option value="user_rating" {% if request.args.get('sort_by')=='user_rating' %}selected{% endif %}>按评分</option>
+      <option value="word_count" {% if request.args.get('sort_by')=='word_count' %}selected{% endif %}>按字数</option>
+    </select>
+    <select name="sort_order_display" class="form-select mobile-sort-select" onchange="syncSortOrder(this)">
+      <option value="desc" {% if request.args.get('sort_order','desc')=='desc' %}selected{% endif %}>降序</option>
+      <option value="asc" {% if request.args.get('sort_order')=='asc' %}selected{% endif %}>升序</option>
+    </select>
+    {% if request.args.get('category_id') or request.args.get('tag_id') %}
+    <a href="{{ url_for('novels.list') }}" class="btn btn-secondary btn-xs mobile-clear-btn">清除</a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Desktop Toolbar (hidden on mobile) -->
+<div class="toolbar desktop-toolbar">
   <div class="toolbar-left">
     <form method="get" class="search-bar" style="margin-bottom:0;">
       <select name="category_id" class="form-select" style="width:auto;" onchange="this.form.submit()">
@@ -42,34 +88,48 @@
   </div>
 </div>
 
+<!-- Page Header -->
+<div class="page-header">
+  <h1>书架</h1>
+  <p>共 {{ novels|length }} 部作品</p>
+</div>
+
+<!-- Mobile Import Button (hidden on desktop) -->
+<a href="{{ url_for('importer.step1') }}" class="btn btn-primary mobile-import-btn">➕ 导入小说</a>
+
 {% if novels %}
-<div class="grid grid-3">
+<!-- Novel Cards -->
+<div class="novel-grid">
   {% for novel in novels %}
-  <a href="{{ url_for('novels.detail', id=novel.id) }}" class="card" style="text-decoration:none; display:block; padding:20px;">
-    <div class="flex-between mb-1">
-      <h3 style="font-family:var(--font-display); font-size:1.05rem; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">{{ novel.title }}</h3>
+  <a href="{{ url_for('novels.detail', id=novel.id) }}" class="novel-card">
+    <div class="novel-card-top">
+      <h3 class="novel-card-title">{{ novel.title }}</h3>
       {% if novel.user_rating %}
-      <span class="stars" style="flex-shrink:0;">
+      <span class="stars novel-card-stars">
         {% for i in range(5) %}
         <span class="{% if i < novel.user_rating %}full{% else %}empty{% endif %}">{% if i < novel.user_rating %}★{% else %}☆{% endif %}</span>
         {% endfor %}
       </span>
       {% endif %}
     </div>
+
     {% if novel.author %}
-    <p class="text-muted mb-1" style="font-size:0.8rem;">{{ novel.author }}</p>
+    <p class="novel-card-author">{{ novel.author }}</p>
     {% endif %}
+
     {% if novel.description %}
-    <p style="font-size:0.8rem; color:var(--text-secondary); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5;">{{ novel.description }}</p>
+    <p class="novel-card-desc">{{ novel.description }}</p>
     {% endif %}
-    <div class="flex-between mt-2" style="font-size:0.75rem; color:var(--text-muted);">
+
+    <div class="novel-card-meta">
       <span>
         {% if novel.category %}<span class="badge badge-outline">{{ novel.category.name }}</span>{% endif %}
       </span>
-      <span>{{ novel.word_count }} 字 · {{ novel.chapter_count }} 章</span>
+      <span class="novel-card-stats">{{ novel.word_count }} 字 · {{ novel.chapter_count }} 章</span>
     </div>
+
     {% if novel.tags %}
-    <div class="mt-1" style="display:flex; gap:4px; flex-wrap:wrap;">
+    <div class="novel-card-tags">
       {% for tag in novel.tags %}
       <span class="badge" style="background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}33;">{{ tag.name }}</span>
       {% endfor %}
@@ -82,9 +142,362 @@
 <div class="empty-state">
   <div class="icon">📚</div>
   <h3>书架空空如也</h3>
-  <p class="mt-1">点击右上角「导入小说」开始你的阅读之旅</p>
+  <p class="mt-1">导入你的第一本小说，开始阅读之旅</p>
   <a href="{{ url_for('importer.step1') }}" class="btn btn-primary mt-2">导入第一本小说</a>
 </div>
 {% endif %}
+
+<!-- ============================================================
+   Page-specific Styles
+============================================================ -->
+<style>
+/* ============================================
+   Mobile Filter Bar (≤430px)
+   ============================================ */
+.mobile-filter-bar {
+  display: none;
+  margin-bottom: 16px;
+}
+
+.chip-section {
+  margin-bottom: 10px;
+}
+
+.chip-section-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+.chip-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 7px 14px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  min-height: 36px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip:active {
+  transform: scale(0.96);
+}
+
+.chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* Mobile Sort Row */
+.mobile-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 2px;
+}
+
+.mobile-sort-select {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  min-height: 36px;
+}
+
+.mobile-clear-btn {
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+/* ============================================
+   Mobile Import Button (≤430px)
+   ============================================ */
+.mobile-import-btn {
+  display: none;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 12px 20px;
+  min-height: 48px;
+  border-radius: var(--radius-md);
+}
+
+/* ============================================
+   Novel Cards
+   ============================================ */
+.novel-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+.novel-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+
+.novel-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border);
+}
+
+.novel-card:active {
+  transform: scale(0.985);
+  transition: transform 0.1s ease;
+}
+
+/* Card Top Row: Title + Stars */
+.novel-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.novel-card-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.novel-card-stars {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Author */
+.novel-card-author {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+/* Description */
+.novel-card-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+/* Meta Row: Category + Stats */
+.novel-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  gap: 8px;
+}
+
+.novel-card-stats {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Tags */
+.novel-card-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* ============================================
+   Desktop Toolbar (visible ≥769px)
+   ============================================ */
+.desktop-toolbar {
+  display: none;
+}
+
+/* ============================================
+   Responsive Breakpoints
+   ============================================ */
+
+/* Mobile: 0-430px */
+@media (max-width: 430px) {
+  .mobile-filter-bar {
+    display: block;
+  }
+
+  .mobile-import-btn {
+    display: flex;
+  }
+
+  .desktop-toolbar {
+    display: none;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .page-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .novel-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .novel-card {
+    padding: 16px;
+  }
+
+  .novel-card-title {
+    font-size: 1.1rem;
+  }
+}
+
+/* Tablet: 431-768px */
+@media (min-width: 431px) and (max-width: 768px) {
+  .mobile-filter-bar {
+    display: none;
+  }
+
+  .mobile-import-btn {
+    display: none;
+  }
+
+  .desktop-toolbar {
+    display: flex;
+  }
+
+  .novel-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .novel-card {
+    padding: 16px;
+  }
+
+  .novel-card-title {
+    font-size: 1rem;
+  }
+}
+
+/* Desktop: ≥769px */
+@media (min-width: 769px) {
+  .mobile-filter-bar {
+    display: none;
+  }
+
+  .mobile-import-btn {
+    display: none;
+  }
+
+  .desktop-toolbar {
+    display: flex;
+  }
+
+  .page-header {
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+  }
+
+  .novel-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .novel-card {
+    padding: 20px;
+  }
+
+  .novel-card-title {
+    font-size: 1.05rem;
+  }
+}
+</style>
+
+<!-- ============================================================
+   Filter chip JS
+============================================================ -->
+<script>
+function setFilter(name, value) {
+  var form = document.getElementById('filter-form');
+  form.querySelector('input[name="' + name + '"]').value = value;
+  form.submit();
+}
+
+function syncSort(select) {
+  var form = document.getElementById('filter-form');
+  form.querySelector('input[name="sort_by"]').value = select.value;
+  form.submit();
+}
+
+function syncSortOrder(select) {
+  var form = document.getElementById('filter-form');
+  form.querySelector('input[name="sort_order"]').value = select.value;
+  form.submit();
+}
+</script>
 
 {% endblock %}

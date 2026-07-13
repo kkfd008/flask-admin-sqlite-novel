@@ -2,34 +2,533 @@
 {% block title %}{{ chapter.title }} · {{ novel.title }} · 墨斋{% endblock %}
 {% block content %}
 
-<div class="page-header">
+<style>
+/* ============================================
+   Reader Page — Mobile-First Reading Experience
+   ============================================ */
+
+/* ---------- Base overrides for reader page ---------- */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0 !important;
+    max-width: 100%;
+  }
+  .bottom-tab-bar {
+    display: none !important;
+  }
+  body {
+    padding-bottom: 0 !important;
+  }
+}
+
+/* ---------- Reading Progress Bar ---------- */
+.reader-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 200;
+  width: 0%;
+  transition: width 0.15s linear;
+  will-change: width;
+  pointer-events: none;
+}
+
+/* ---------- Mobile Reader Header ---------- */
+.reader-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  gap: 8px;
+}
+
+.reader-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.reader-header-chapter {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  line-height: 1.3;
+}
+
+.reader-header-novel {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-block;
+  margin-top: 1px;
+}
+
+.reader-header-novel:hover {
+  text-decoration: underline;
+}
+
+.reader-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.reader-header-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  transition: all var(--transition);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.reader-header-btn:hover,
+.reader-header-btn:active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* ---------- Desktop Page Header ---------- */
+.reader-page-header {
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+}
+
+.reader-page-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+}
+
+.reader-page-header p {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.reader-desktop-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Reading Content ---------- */
+.reader-content {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  line-height: 2.0;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 16px;
+  min-height: 60vh;
+  transition: font-size 0.2s ease;
+}
+
+.reader-content.font-small  { font-size: 0.95rem; }
+.reader-content.font-medium { font-size: 1.1rem; }
+.reader-content.font-large  { font-size: 1.25rem; }
+
+/* ---------- Font Size Control (Mobile) ---------- */
+.font-size-control {
+  position: fixed;
+  bottom: 76px;
+  left: 16px;
+  z-index: 60;
+}
+
+.font-size-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-size-btn:hover,
+.font-size-btn:active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.font-size-popup {
+  position: absolute;
+  bottom: 52px;
+  left: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 56px;
+}
+
+.font-size-popup.visible {
+  display: flex;
+}
+
+.font-size-option {
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+  text-align: center;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.font-size-option:hover {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.font-size-option.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---------- Mobile Bottom Navigation ---------- */
+.reader-bottom-nav {
+  display: none;
+}
+
+/* ---------- Desktop Navigation ---------- */
+.reader-desktop-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.reader-desktop-nav .nav-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- Chapter Tap Zones (Mobile) ---------- */
+.reader-tap-zone {
+  display: none;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  z-index: 10;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reader-tap-prev { left: 0; }
+.reader-tap-next { right: 0; }
+
+/* ---------- First-Visit Tap Hints ---------- */
+.reader-tap-hint {
+  display: none;
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  pointer-events: none;
+}
+
+.reader-tap-hint.show {
+  display: flex;
+}
+
+.reader-tap-hint-prev { left: 10px; }
+.reader-tap-hint-next { right: 10px; }
+
+.reader-tap-hint-inner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  animation: tapHintFade 3.2s ease forwards;
+}
+
+@keyframes tapHintFade {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ============================================
+   Responsive Breakpoints
+   ============================================ */
+
+/* Mobile / Tablet: 0 – 768px — Immersive Reading Mode */
+@media (max-width: 768px) {
+  .reader-header {
+    display: flex;
+  }
+  .reader-page-header {
+    display: none;
+  }
+  .reader-desktop-header-actions {
+    display: none;
+  }
+  .reader-desktop-nav {
+    display: none;
+  }
+
+  /* Full-width content, no card */
+  .reader-content {
+    padding: 16px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  /* Fixed bottom nav */
+  .reader-bottom-nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 8px;
+    padding-bottom: env(safe-area-inset-bottom);
+    min-height: calc(52px + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+  }
+
+  [data-theme="dark"] .reader-bottom-nav {
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.35);
+  }
+
+  .reader-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+    min-height: 44px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .reader-nav-btn:hover,
+  .reader-nav-btn:active {
+    color: var(--accent);
+    background: var(--accent-subtle);
+  }
+
+  .reader-nav-btn.disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .reader-nav-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .reader-nav-dir {
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .reader-nav-dir:hover,
+  .reader-nav-dir:active {
+    background: var(--accent-subtle);
+  }
+
+  .reader-nav-right {
+    justify-content: flex-end;
+  }
+
+  /* Tap zones */
+  .reader-tap-zone {
+    display: block;
+  }
+
+  /* Font size control */
+  .font-size-control {
+    display: block;
+  }
+}
+
+/* Desktop: ≥ 769px — Card Layout */
+@media (min-width: 769px) {
+  .reader-header {
+    display: none;
+  }
+  .reader-bottom-nav {
+    display: none;
+  }
+  .reader-tap-zone {
+    display: none !important;
+  }
+  .reader-tap-hint {
+    display: none !important;
+  }
+  .font-size-control {
+    display: none;
+  }
+
+  .reader-page-header {
+    display: block;
+  }
+  .reader-desktop-nav {
+    display: flex;
+  }
+
+  .reader-content {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 32px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+    transition: box-shadow var(--transition), border-color var(--transition);
+  }
+
+  .reader-content:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border);
+  }
+}
+</style>
+
+<!-- Reading Progress Bar -->
+<div class="reader-progress-bar" id="progressBar"></div>
+
+<!-- ====== Mobile Header ====== -->
+<div class="reader-header">
+  <div class="reader-header-info">
+    <div class="reader-header-chapter">{{ chapter.title }}</div>
+    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="reader-header-novel">{{ novel.title }}</a>
+  </div>
+  <div class="reader-header-actions">
+    <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=chapter.id) }}" class="reader-header-btn" title="编辑">✎</a>
+    <button class="reader-header-btn" id="bookmarkBtn" title="添加书签">🔖</button>
+  </div>
+</div>
+
+<!-- ====== Desktop Page Header ====== -->
+<div class="reader-page-header">
   <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
     <div>
       <h1>{{ chapter.title }}</h1>
       <p><a href="{{ url_for('novels.detail', id=novel.id) }}" style="color:var(--accent); text-decoration:none;">{{ novel.title }}</a></p>
     </div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <div class="reader-desktop-header-actions">
       <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=chapter.id) }}" class="btn btn-secondary btn-sm">编辑</a>
-      <button class="btn btn-secondary btn-sm" id="bookmarkBtn" title="添加书签">🔖 书签</button>
+      <button class="btn btn-secondary btn-sm" id="bookmarkBtnDesktop" title="添加书签">🔖 书签</button>
     </div>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:24px; padding:32px;">
-  <div class="reader-content" style="font-family:var(--font-display); font-size:1.05rem; line-height:2; color:var(--text-primary); white-space:pre-wrap; word-break:break-word;">
-    {{ chapter.content }}
+<!-- ====== Reading Content ====== -->
+<div class="reader-content font-medium" id="readerContent">{{ chapter.content }}</div>
+
+<!-- ====== Font Size Control (Mobile) ====== -->
+<div class="font-size-control" id="fontSizeControl">
+  <button class="font-size-btn" id="fontSizeBtn" aria-label="调整字体大小">A</button>
+  <div class="font-size-popup" id="fontSizePopup">
+    <button class="font-size-option" data-size="small">小</button>
+    <button class="font-size-option active" data-size="medium">中</button>
+    <button class="font-size-option" data-size="large">大</button>
   </div>
 </div>
 
-<div class="flex-between" style="flex-wrap:wrap; gap:12px; margin-bottom:32px;">
-  <div style="display:flex; gap:8px;">
+<!-- ====== Mobile Bottom Navigation ====== -->
+<div class="reader-bottom-nav">
+  {% if prev_chapter %}
+  <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=prev_chapter.id) }}" class="reader-nav-btn">← 上一章</a>
+  {% else %}
+  <span class="reader-nav-btn disabled">← 已是第一章</span>
+  {% endif %}
+
+  <div class="reader-nav-center">
+    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="reader-nav-dir">目录</a>
+  </div>
+
+  {% if next_chapter %}
+  <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=next_chapter.id) }}" class="reader-nav-btn reader-nav-right">下一章 →</a>
+  {% else %}
+  <span class="reader-nav-btn disabled reader-nav-right">已是最后一章 →</span>
+  {% endif %}
+</div>
+
+<!-- ====== Desktop Navigation ====== -->
+<div class="reader-desktop-nav">
+  <div class="nav-group">
     {% if prev_chapter %}
     <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=prev_chapter.id) }}" class="btn btn-secondary">← {{ prev_chapter.title }}</a>
     {% else %}
     <span class="btn btn-secondary" style="opacity:0.4; cursor:default;">← 已是第一章</span>
     {% endif %}
   </div>
-  <div style="display:flex; gap:8px;">
+  <div class="nav-group">
     <a href="{{ url_for('novels.detail', id=novel.id) }}" class="btn btn-secondary">目录</a>
     {% if next_chapter %}
     <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=next_chapter.id) }}" class="btn btn-primary">{{ next_chapter.title }} →</a>
@@ -39,47 +538,161 @@
   </div>
 </div>
 
+<!-- ====== Chapter Tap Zones (Mobile) ====== -->
+<div class="reader-tap-zone reader-tap-prev" id="tapPrev"></div>
+<div class="reader-tap-zone reader-tap-next" id="tapNext"></div>
+
+<!-- ====== First-Visit Tap Hints ====== -->
+<div class="reader-tap-hint reader-tap-hint-prev" id="tapHintPrev">
+  <div class="reader-tap-hint-inner">← 上一章</div>
+</div>
+<div class="reader-tap-hint reader-tap-hint-next" id="tapHintNext">
+  <div class="reader-tap-hint-inner">下一章 →</div>
+</div>
+
+<!-- ====== JavaScript ====== -->
 <script>
 (function() {
   const novelId = {{ novel.id }};
   const chapterId = {{ chapter.id }};
+  const readerContent = document.getElementById('readerContent');
+  const progressBar = document.getElementById('progressBar');
 
-  // Save reading progress on scroll
-  let scrollTimer;
-  window.addEventListener('scroll', () => {
+  /* =========================================================
+     Reading Progress Bar
+     ========================================================= */
+  function updateProgress() {
+    var scrollTop = window.scrollY;
+    var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    var pct = docHeight > 0 ? Math.min((scrollTop / docHeight) * 100, 100) : 0;
+    progressBar.style.width = pct + '%';
+  }
+
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  /* =========================================================
+     Save Reading Progress (debounced 1 s)
+     ========================================================= */
+  var scrollTimer;
+  window.addEventListener('scroll', function() {
     clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => {
-      const scrollPos = Math.round(window.scrollY);
+    scrollTimer = setTimeout(function() {
+      var scrollPos = Math.round(window.scrollY);
       fetch('/api/progress', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({novel_id: novelId, chapter_id: chapterId, scroll_position: scrollPos})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ novel_id: novelId, chapter_id: chapterId, scroll_position: scrollPos })
       });
     }, 1000);
   });
 
-  // Bookmark
-  document.getElementById('bookmarkBtn').addEventListener('click', () => {
-    const title = prompt('书签标题：', '{{ chapter.title }}');
+  /* =========================================================
+     Bookmark
+     ========================================================= */
+  function showBookmarkPrompt() {
+    var title = prompt('书签标题：', '{{ chapter.title }}');
     if (title) {
       fetch('/api/bookmark', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({novel_id: novelId, chapter_id: chapterId, title: title, position: Math.round(window.scrollY)})
-      }).then(res => res.json()).then(data => {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ novel_id: novelId, chapter_id: chapterId, title: title, position: Math.round(window.scrollY) })
+      }).then(function(res) { return res.json(); }).then(function(data) {
         if (data.status === 'ok') alert('书签已添加');
       });
     }
+  }
+
+  var bookmarkBtn = document.getElementById('bookmarkBtn');
+  if (bookmarkBtn) bookmarkBtn.addEventListener('click', showBookmarkPrompt);
+
+  var bookmarkBtnDesktop = document.getElementById('bookmarkBtnDesktop');
+  if (bookmarkBtnDesktop) bookmarkBtnDesktop.addEventListener('click', showBookmarkPrompt);
+
+  /* =========================================================
+     Font Size Control
+     ========================================================= */
+  var fontSizeBtn = document.getElementById('fontSizeBtn');
+  var fontSizePopup = document.getElementById('fontSizePopup');
+  var fontSizeOptions = fontSizePopup.querySelectorAll('.font-size-option');
+
+  // Restore saved preference
+  var savedSize = localStorage.getItem('readerFontSize') || 'medium';
+  readerContent.classList.remove('font-small', 'font-medium', 'font-large');
+  readerContent.classList.add('font-' + savedSize);
+  fontSizeOptions.forEach(function(opt) {
+    opt.classList.toggle('active', opt.dataset.size === savedSize);
   });
 
-  // Keyboard navigation
-  document.addEventListener('keydown', (e) => {
+  fontSizeBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    fontSizePopup.classList.toggle('visible');
+  });
+
+  fontSizeOptions.forEach(function(opt) {
+    opt.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var size = opt.dataset.size;
+      readerContent.classList.remove('font-small', 'font-medium', 'font-large');
+      readerContent.classList.add('font-' + size);
+      fontSizeOptions.forEach(function(o) { o.classList.remove('active'); });
+      opt.classList.add('active');
+      localStorage.setItem('readerFontSize', size);
+      fontSizePopup.classList.remove('visible');
+    });
+  });
+
+  document.addEventListener('click', function() {
+    fontSizePopup.classList.remove('visible');
+  });
+
+  /* =========================================================
+     Chapter Tap Zones (Mobile)
+     ========================================================= */
+  var tapPrev = document.getElementById('tapPrev');
+  var tapNext = document.getElementById('tapNext');
+
+  {% if prev_chapter %}
+  tapPrev.addEventListener('click', function() {
+    window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=prev_chapter.id) }}';
+  });
+  {% endif %}
+
+  {% if next_chapter %}
+  tapNext.addEventListener('click', function() {
+    window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=next_chapter.id) }}';
+  });
+  {% endif %}
+
+  /* First-visit hint */
+  var tapHintPrev = document.getElementById('tapHintPrev');
+  var tapHintNext = document.getElementById('tapHintNext');
+  var hintKey = 'readerTapHintShown';
+
+  if (!localStorage.getItem(hintKey)) {
+    tapHintPrev.classList.add('show');
+    tapHintNext.classList.add('show');
+    localStorage.setItem(hintKey, '1');
+    setTimeout(function() {
+      tapHintPrev.classList.remove('show');
+      tapHintNext.classList.remove('show');
+    }, 3500);
+  }
+
+  /* =========================================================
+     Keyboard Navigation (Desktop)
+     ========================================================= */
+  document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     {% if prev_chapter %}
-    if (e.key === 'ArrowLeft' || e.key === 'a') window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=prev_chapter.id) }}';
+    if (e.key === 'ArrowLeft' || e.key === 'a') {
+      window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=prev_chapter.id) }}';
+    }
     {% endif %}
     {% if next_chapter %}
-    if (e.key === 'ArrowRight' || e.key === 'd') window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=next_chapter.id) }}';
+    if (e.key === 'ArrowRight' || e.key === 'd') {
+      window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=next_chapter.id) }}';
+    }
     {% endif %}
   });
 })();

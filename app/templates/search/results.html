@@ -21,9 +21,9 @@
   </div>
   <div style="display:flex; flex-direction:column; gap:12px;">
     {% for r in results %}
-    <a href="{{ url_for('reading.read_chapter', novel_id=r.novel_id, chapter_id=r.chapter_id) }}" class="card" style="text-decoration:none; display:block; padding:20px;">
-      <div class="flex-between mb-1">
-        <div>
+    <a href="{{ url_for('reading.read_chapter', novel_id=r.novel_id, chapter_id=r.chapter_id) }}" class="card result-card" style="text-decoration:none; display:block; padding:20px;">
+      <div class="flex-between mb-1" style="flex-wrap:wrap; gap:8px;">
+        <div style="min-width:0;">
           <strong style="color:var(--text-primary);">{{ r.novel_title }}</strong>
           <span class="text-muted" style="margin:0 8px;">·</span>
           <span style="color:var(--text-secondary);">{{ r.chapter_title }}</span>
@@ -50,5 +50,23 @@
   <p>搜索小说标题、章节内容中的关键词</p>
 </div>
 {% endif %}
+
+<style>
+/* Mobile: search bar stacked, full-width */
+@media (max-width: 430px) {
+  .search-bar {
+    flex-direction: column;
+  }
+  .search-bar .form-input {
+    width: 100%;
+  }
+  .search-bar .btn {
+    width: 100%;
+  }
+  .result-card {
+    padding: 16px !important;
+  }
+}
+</style>
 
 {% endblock %}

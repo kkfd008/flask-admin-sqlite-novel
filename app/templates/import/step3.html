@@ -2,26 +2,151 @@
 {% block title %}导入小说 · 第三步 · 墨斋{% endblock %}
 {% block content %}
 
+<style>
+/* ============================================
+   Step 3 — Mobile-First Responsive Styles
+   ============================================ */
+
+/* --- Step Progress Indicator --- */
+.step-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.step-progress::-webkit-scrollbar { display: none; }
+.step-arrow { color: var(--border); flex-shrink: 0; }
+
+/* --- Card --- */
+.step3-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
+/* --- Chapter Card List (Mobile) --- */
+.chapter-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.chapter-card-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  min-height: 44px;
+}
+.chapter-card-index {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  min-width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.chapter-card-title {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chapter-card-delete {
+  flex-shrink: 0;
+}
+
+/* --- Chapter Table (Desktop) --- */
+.step3-table-wrap {
+  display: none;
+  margin-bottom: 24px;
+}
+
+/* --- Empty State --- */
+.empty-state-chapters {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+/* --- Buttons --- */
+.step3-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step3-actions .btn {
+  width: 100%;
+}
+
+/* ============================================
+   Desktop (≥769px)
+   ============================================ */
+@media (min-width: 769px) {
+  .step3-card {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .chapter-card-list {
+    display: none;
+  }
+  .step3-table-wrap {
+    display: block;
+  }
+  .step3-actions {
+    flex-direction: row;
+  }
+}
+</style>
+
 <div class="page-header">
   <h1>导入小说</h1>
   <p>第三步：预览识别的章节</p>
 </div>
 
-<div class="card" style="max-width:700px; margin:0 auto;">
-  <div style="display:flex; gap:4px; margin-bottom:24px;">
+<div class="step3-card">
+  <div class="step-progress">
     <span class="badge badge-outline">1. 上传</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">2. 规则</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">3. 预览</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">4. 确认</span>
   </div>
 
   <p class="text-muted mb-2" style="font-size:0.85rem;">共识别 {{ chapter_titles|length }} 个章节。如有多余章节可删除。</p>
 
   {% if chapter_titles %}
-  <div class="table-wrap mb-3">
+  <!-- Mobile: Card List -->
+  <div class="chapter-card-list">
+    {% for t in chapter_titles %}
+    <div class="chapter-card-row">
+      <span class="chapter-card-index">{{ loop.index }}</span>
+      <span class="chapter-card-title">{{ t.title }}</span>
+      <form method="post" class="chapter-card-delete" style="display:inline;">
+        <button type="submit" name="delete_index" value="{{ loop.index0 }}" class="btn btn-danger btn-xs" title="删除此章节">删除</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Desktop: Table -->
+  <div class="step3-table-wrap table-wrap">
     <table>
       <thead>
         <tr>
@@ -46,16 +171,16 @@
     </table>
   </div>
   {% else %}
-  <div class="empty-state mb-3">
+  <div class="empty-state-chapters">
     <div class="icon">📋</div>
     <h3>未识别到章节</h3>
     <p>请返回上一步调整规则</p>
   </div>
   {% endif %}
 
-  <div style="display:flex; gap:8px;">
+  <div class="step3-actions">
     <a href="{{ url_for('importer.step2') }}" class="btn btn-secondary">上一步</a>
-    <button type="submit" class="btn btn-primary" style="flex:1;" onclick="document.getElementById('nextForm').submit();">下一步</button>
+    <button type="submit" class="btn btn-primary" onclick="document.getElementById('nextForm').submit();">下一步</button>
   </div>
   <form method="post" id="nextForm" style="display:none;"><button type="submit">next</button></form>
 </div>

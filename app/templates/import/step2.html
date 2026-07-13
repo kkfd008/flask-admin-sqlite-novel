@@ -2,19 +2,108 @@
 {% block title %}导入小说 · 第二步 · 墨斋{% endblock %}
 {% block content %}
 
+<style>
+/* ============================================
+   Step 2 — Mobile-First Responsive Styles
+   ============================================ */
+
+/* --- Step Progress Indicator --- */
+.step-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.step-progress::-webkit-scrollbar { display: none; }
+.step-arrow { color: var(--border); flex-shrink: 0; }
+
+/* --- Card --- */
+.step2-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
+/* --- Rule List --- */
+.rule-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 8px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  min-height: 44px;
+}
+.rule-pattern {
+  background: var(--bg-surface);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 40%;
+}
+.rule-name {
+  flex: 1;
+}
+
+/* --- Buttons --- */
+.step2-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step2-actions .btn {
+  width: 100%;
+}
+
+/* ============================================
+   Desktop (≥769px)
+   ============================================ */
+@media (min-width: 769px) {
+  .step2-card {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .rule-pattern {
+    max-width: none;
+  }
+  .step2-actions {
+    flex-direction: row;
+  }
+}
+</style>
+
 <div class="page-header">
   <h1>导入小说</h1>
   <p>第二步：选择章节识别规则</p>
 </div>
 
-<div class="card" style="max-width:700px; margin:0 auto;">
-  <div style="display:flex; gap:4px; margin-bottom:24px;">
+<div class="step2-card">
+  <div class="step-progress">
     <span class="badge badge-outline">1. 上传</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">2. 规则</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">3. 预览</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">4. 确认</span>
   </div>
 
@@ -26,14 +115,14 @@
         系统规则（全部显示，启用规则默认勾选）
       </h4>
       {% if system_rules %}
-      <div style="display:flex; flex-direction:column; gap:6px; background:var(--bg-elevated); border-radius:var(--radius-sm); padding:12px;">
+      <div class="rule-list-container">
         {% for rule in system_rules %}
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px; border-radius:4px; font-size:0.9rem; {% if rule.enabled %}color:var(--text-primary);{% else %}color:var(--text-muted);{% endif %}">
+        <label class="rule-item" {% if rule.enabled %}style="color:var(--text-primary);"{% else %}style="color:var(--text-muted);"{% endif %}>
           <input type="checkbox" name="rule_ids" value="{{ rule.id }}" {% if rule.enabled %}checked{% endif %} style="accent-color:var(--accent);">
-          <span style="flex:1;">{{ rule.name }}</span>
-          <code style="background:var(--bg-surface); padding:2px 8px; border-radius:4px; font-size:0.75rem; color:var(--text-secondary);">{{ rule.pattern }}</code>
+          <span class="rule-name">{{ rule.name }}</span>
+          <code class="rule-pattern">{{ rule.pattern }}</code>
           {% if not rule.enabled %}
-          <span class="badge badge-outline" style="font-size:0.7rem;">已禁用</span>
+          <span class="badge badge-outline" style="font-size:0.7rem; flex-shrink: 0;">已禁用</span>
           {% endif %}
         </label>
         {% endfor %}
@@ -50,12 +139,12 @@
         <span class="badge badge-outline">用户</span>
         用户规则（可选 0-3 个）
       </h4>
-      <div style="display:flex; flex-direction:column; gap:6px; background:var(--bg-elevated); border-radius:var(--radius-sm); padding:12px;">
+      <div class="rule-list-container">
         {% for rule in user_rules[:4] %}
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px; border-radius:4px; font-size:0.9rem; color:var(--text-primary);">
+        <label class="rule-item" style="color:var(--text-primary);">
           <input type="checkbox" name="rule_ids" value="{{ rule.id }}" style="accent-color:var(--accent);" class="user-rule-cb">
-          <span style="flex:1;">{{ rule.name }}</span>
-          <code style="background:var(--bg-surface); padding:2px 8px; border-radius:4px; font-size:0.75rem; color:var(--text-secondary);">{{ rule.pattern }}</code>
+          <span class="rule-name">{{ rule.name }}</span>
+          <code class="rule-pattern">{{ rule.pattern }}</code>
         </label>
         {% endfor %}
       </div>
@@ -67,9 +156,9 @@
       <label class="form-label" for="custom_pattern">自定义正则表达式</label>
       <input class="form-input" type="text" name="custom_pattern" id="custom_pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章">
     </div>
-    <div style="display:flex; gap:8px;">
+    <div class="step2-actions">
       <a href="{{ url_for('importer.step1') }}" class="btn btn-secondary">上一步</a>
-      <button type="submit" class="btn btn-primary" style="flex:1;">下一步</button>
+      <button type="submit" class="btn btn-primary">下一步</button>
     </div>
   </form>
 </div>

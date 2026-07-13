@@ -15,7 +15,7 @@
 <div class="card mb-3" id="createForm" style="display:none;">
   <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">新建用户规则</h3>
   <form method="post" action="{{ url_for('rules.create') }}">
-    <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:end;">
+    <div class="rule-form-grid">
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label" for="name">规则名称</label>
         <input class="form-input" type="text" id="name" name="name" required>
@@ -24,7 +24,7 @@
         <label class="form-label" for="pattern">正则表达式</label>
         <input class="form-input" type="text" id="pattern" name="pattern" placeholder="^第[零一二三四五六七八九十百千]+章" required>
       </div>
-      <button type="submit" class="btn btn-primary btn-sm">添加</button>
+      <button type="submit" class="btn btn-primary btn-sm rule-form-btn">添加</button>
     </div>
     <div class="form-group mt-2" style="margin-bottom:0;">
       <label class="form-label" for="description">描述</label>
@@ -41,7 +41,8 @@
     <span class="text-muted" style="font-size:0.8rem; font-weight:400;">仅可启用/禁用</span>
   </h3>
   {% if system_rules %}
-  <div class="table-wrap">
+  <!-- Desktop: table -->
+  <div class="table-wrap rule-table-desktop">
     <table>
       <thead>
         <tr>
@@ -71,6 +72,34 @@
       </tbody>
     </table>
   </div>
+  <!-- Mobile: card list -->
+  <div class="rule-card-list">
+    {% for rule in system_rules %}
+    <div class="card rule-card-item">
+      <div class="rule-card-row">
+        <span class="rule-card-key">名称</span>
+        <span class="rule-card-val"><strong>{{ rule.name }}</strong></span>
+      </div>
+      <div class="rule-card-row">
+        <span class="rule-card-key">正则</span>
+        <span class="rule-card-val"><code style="background:var(--bg-elevated); padding:2px 8px; border-radius:4px; font-size:0.8rem; word-break:break-all;">{{ rule.pattern }}</code></span>
+      </div>
+      <div class="rule-card-row">
+        <span class="rule-card-key">状态</span>
+        <span class="rule-card-val">
+          <span class="badge {% if rule.enabled %}badge-success{% else %}badge-outline{% endif %}" style="{% if rule.enabled %}background:rgba(45,106,79,0.1); color:var(--success); border-color:rgba(45,106,79,0.2);{% endif %}">
+            {{ '启用' if rule.enabled else '禁用' }}
+          </span>
+        </span>
+      </div>
+      <div class="rule-card-actions">
+        <form method="post" action="{{ url_for('rules.toggle', id=rule.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-secondary btn-xs" style="min-height:44px;">{{ '禁用' if rule.enabled else '启用' }}</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
   {% else %}
   <div class="empty-state" style="padding:30px;">
     <p class="text-muted">暂无系统规则，请初始化数据库</p>
@@ -86,7 +115,8 @@
     <span class="text-muted" style="font-size:0.8rem; font-weight:400;">可编辑/删除</span>
   </h3>
   {% if user_rules %}
-  <div class="table-wrap">
+  <!-- Desktop: table -->
+  <div class="table-wrap rule-table-desktop">
     <table>
       <thead>
         <tr>
@@ -122,6 +152,38 @@
       </tbody>
     </table>
   </div>
+  <!-- Mobile: card list -->
+  <div class="rule-card-list">
+    {% for rule in user_rules %}
+    <div class="card rule-card-item">
+      <div class="rule-card-row">
+        <span class="rule-card-key">名称</span>
+        <span class="rule-card-val"><strong>{{ rule.name }}</strong></span>
+      </div>
+      <div class="rule-card-row">
+        <span class="rule-card-key">正则</span>
+        <span class="rule-card-val"><code style="background:var(--bg-elevated); padding:2px 8px; border-radius:4px; font-size:0.8rem; word-break:break-all;">{{ rule.pattern }}</code></span>
+      </div>
+      <div class="rule-card-row">
+        <span class="rule-card-key">状态</span>
+        <span class="rule-card-val">
+          <span class="badge {% if rule.enabled %}badge-success{% else %}badge-outline{% endif %}" style="{% if rule.enabled %}background:rgba(45,106,79,0.1); color:var(--success); border-color:rgba(45,106,79,0.2);{% endif %}">
+            {{ '启用' if rule.enabled else '禁用' }}
+          </span>
+        </span>
+      </div>
+      <div class="rule-card-actions">
+        <form method="post" action="{{ url_for('rules.toggle', id=rule.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-secondary btn-xs" style="min-height:44px;">{{ '禁用' if rule.enabled else '启用' }}</button>
+        </form>
+        <button class="btn btn-secondary btn-xs" style="min-height:44px;" onclick="editRule({{ rule.id }}, '{{ rule.name }}', '{{ rule.pattern }}', '{{ rule.description or '' }}')">编辑</button>
+        <form method="post" action="{{ url_for('rules.delete', id=rule.id) }}" style="display:inline;" onsubmit="return confirm('确定删除规则「{{ rule.name }}」？')">
+          <button type="submit" class="btn btn-danger btn-xs" style="min-height:44px;">删除</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
   {% else %}
   <div class="empty-state" style="padding:30px;">
     <div class="icon">📝</div>
@@ -134,7 +196,7 @@
 <div class="card mt-3" id="editForm" style="display:none;">
   <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">编辑用户规则</h3>
   <form method="post" id="editFormInner">
-    <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:end;">
+    <div class="rule-form-grid">
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label" for="edit_name">规则名称</label>
         <input class="form-input" type="text" id="edit_name" name="name" required>
@@ -143,7 +205,7 @@
         <label class="form-label" for="edit_pattern">正则表达式</label>
         <input class="form-input" type="text" id="edit_pattern" name="pattern" required>
       </div>
-      <button type="submit" class="btn btn-primary btn-sm">保存</button>
+      <button type="submit" class="btn btn-primary btn-sm rule-form-btn">保存</button>
     </div>
     <div class="form-group mt-2" style="margin-bottom:0;">
       <label class="form-label" for="edit_description">描述</label>
@@ -162,5 +224,75 @@ function editRule(id, name, pattern, desc) {
   document.getElementById('editForm').scrollIntoView({behavior:'smooth'});
 }
 </script>
+
+<style>
+/* Form grid: desktop 1:1:auto, mobile full-width stacked */
+.rule-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+/* Card list: hidden on desktop, shown on mobile */
+.rule-card-list {
+  display: none;
+}
+
+.rule-card-item {
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.rule-card-row {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-light);
+  align-items: center;
+}
+.rule-card-row:last-of-type {
+  border-bottom: none;
+}
+
+.rule-card-key {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-width: 48px;
+  flex-shrink: 0;
+}
+
+.rule-card-val {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.rule-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 430px) {
+  .rule-table-desktop {
+    display: none;
+  }
+  .rule-card-list {
+    display: block;
+  }
+  .rule-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .rule-form-btn {
+    width: 100%;
+  }
+}
+</style>
 
 {% endblock %}

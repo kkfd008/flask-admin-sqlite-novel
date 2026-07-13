@@ -2,19 +2,112 @@
 {% block title %}导入小说 · 第一步 · 墨斋{% endblock %}
 {% block content %}
 
+<style>
+/* ============================================
+   Step 1 — Mobile-First Responsive Styles
+   ============================================ */
+
+/* --- Step Progress Indicator --- */
+.step-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.step-progress::-webkit-scrollbar { display: none; }
+.step-arrow { color: var(--border); flex-shrink: 0; }
+
+/* --- Card --- */
+.step1-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
+/* --- Drop Zone --- */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 32px 16px;
+  text-align: center;
+  margin-bottom: 20px;
+  transition: all var(--transition);
+}
+.drop-zone-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+.drop-zone-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.drop-zone-hint {
+  color: var(--text-muted);
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+/* --- File Input --- */
+.step1-file-input {
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* --- Buttons --- */
+.step1-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step1-actions .btn {
+  width: 100%;
+}
+
+/* ============================================
+   Desktop (≥769px)
+   ============================================ */
+@media (min-width: 769px) {
+  .step1-card {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .drop-zone {
+    padding: 40px;
+  }
+  .drop-zone-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+  }
+  .step1-file-input {
+    max-width: 300px;
+    margin: 12px auto 0;
+  }
+  .step1-actions {
+    flex-direction: row;
+  }
+}
+</style>
+
 <div class="page-header">
   <h1>导入小说</h1>
   <p>第一步：上传 TXT 文件</p>
 </div>
 
-<div class="card" style="max-width:600px; margin:0 auto;">
-  <div style="display:flex; gap:4px; margin-bottom:24px;">
+<div class="step1-card">
+  <div class="step-progress">
     <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">1. 上传</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">2. 规则</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">3. 预览</span>
-    <span style="color:var(--border);">→</span>
+    <span class="step-arrow">→</span>
     <span class="badge badge-outline">4. 确认</span>
   </div>
 
@@ -23,13 +116,15 @@
   {% endif %}
 
   <form method="post" enctype="multipart/form-data">
-    <div style="border:2px dashed var(--border); border-radius:var(--radius-md); padding:40px; text-align:center; margin-bottom:20px; transition:all var(--transition);" id="dropZone">
-      <div class="text-muted" style="font-size:2.5rem; margin-bottom:12px;">📄</div>
-      <p style="font-weight:500; color:var(--text-primary);">拖拽 TXT 文件到此处</p>
-      <p class="text-muted mt-1" style="font-size:0.8rem;">或点击下方按钮选择文件</p>
-      <input class="form-input mt-2" type="file" name="file" id="fileInput" accept=".txt" required style="max-width:300px; margin:0 auto;">
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-zone-icon text-muted">📄</div>
+      <p class="drop-zone-title">拖拽 TXT 文件到此处</p>
+      <p class="drop-zone-hint">或点击下方按钮选择文件</p>
+      <input class="form-input step1-file-input" type="file" name="file" id="fileInput" accept=".txt" required>
     </div>
-    <button type="submit" class="btn btn-primary" style="width:100%;">上传并继续</button>
+    <div class="step1-actions">
+      <button type="submit" class="btn btn-primary">上传并继续</button>
+    </div>
   </form>
 </div>
 

@@ -23,13 +23,36 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="content">章节内容</label>
-      <textarea class="form-textarea" id="content" name="content" style="min-height:500px; font-family:var(--font-display); font-size:1rem; line-height:1.9;" required>{{ chapter.content }}</textarea>
+      <textarea class="form-textarea editor-textarea" id="content" name="content" style="font-family:var(--font-display); font-size:1rem; line-height:1.9;" required>{{ chapter.content }}</textarea>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div class="editor-actions">
       <button type="submit" class="btn btn-primary">保存修改</button>
       <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=chapter.id) }}" class="btn btn-secondary">取消</a>
     </div>
   </form>
 </div>
+
+<style>
+.editor-textarea {
+  min-height: 500px;
+}
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 430px) {
+  .editor-textarea {
+    min-height: 300px !important;
+    font-size: 0.9rem !important;
+  }
+  .editor-actions {
+    flex-direction: column;
+  }
+  .editor-actions .btn {
+    width: 100%;
+  }
+}
+</style>
 
 {% endblock %}
