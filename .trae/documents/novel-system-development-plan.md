@@ -20,7 +20,10 @@
 - 单用户登录鉴权（所有功能需登录）
 - TXT 导入 4 步向导（上传转码 → 选择规则 → 预览章节 → 确认保存）
 - 8 大类章节拆分规则（中文序号、特殊章节、分隔符、英文序号、特殊符号、纯数字、分节阅读、卷部篇）
+- **每本书独立章节目录规则**（长期保存，导入时可添加自定义规则，只对本书有效）
 - 小说标签、收藏、评分（多对多关系）
+- **user_rating 字段**（每本书平均评分，四舍五入为 1-5 整数，每次评价后重新计算）
+- **书架列表排序**（按评分、最后阅读时间、书籍字数排序，支持正序/反序，与筛选合并）
 - 阅读进度记录 + 书签功能
 - 在线编辑章节 + 导出 TXT + 全文搜索
 - Flask-Admin 后台管理
@@ -108,9 +111,10 @@ Task 17（主题切换） ──> Task 18（验证测试）
 |------|------|----------|
 | User | user | id、username、password_hash、created_at |
 | Category | category | id、name、description、sort_order |
-| Novel | novel | id、title、author、category_id、word_count、chapter_count |
+| Novel | novel | id、title、author、category_id、word_count、chapter_count、**user_rating** |
 | Chapter | chapter | id、novel_id、title、content、order、word_count |
 | ChapterRule | chapter_rule | id、name、pattern、category、enabled、is_default |
+| **NovelChapterRule** | **novel_chapter_rule** | **id、novel_id、pattern、description** |
 | ReadingProgress | reading_progress | id、user_id、novel_id、chapter_id、scroll_position |
 | Bookmark | bookmark | id、user_id、novel_id、chapter_id、title、position |
 | Tag | tag | id、name、color |
@@ -122,6 +126,8 @@ Task 17（主题切换） ──> Task 18（验证测试）
 - 使用 `db.Table` 定义 `novel_tags` 关联表
 - `Novel.tags` 使用 `secondary='novel_tags'` 建立多对多关系
 - `ChapterRule.category` 字段存储规则分类（中文序号/特殊章节等）
+- `Novel.user_rating` 字段：INTEGER，DEFAULT 0，CHECK (0-5)，存储平均评分（四舍五入为 1-5 整数），每次用户评价后重新计算写入
+- `NovelChapterRule` 模型：每本书独立的章节拆分规则，与 Novel 一对一关系，导入时可保存自定义规则
 - 所有外键设置级联删除规则（见 database_prototype.md 第 7 节）
 
 **验证标准**：
@@ -172,6 +178,7 @@ Task 17（主题切换） ──> Task 18（验证测试）
 - 路由：`/novels/import/step2` GET/POST
 - 从 `ChapterRule` 表查询 `enabled=True` 的规则
 - 提供下拉框 + 自定义正则输入框
+- **新增选项**：勾选"保存为本书规则"，将自定义正则保存到 `NovelChapterRule` 表（只对本书有效）
 - 执行章节拆分，生成章节列表（保存到 session）
 
 **Step 3：预览章节**
@@ -262,13 +269,14 @@ Task 17（主题切换） ──> Task 18（验证测试）
 #### Task 9: 实现小说评分模块
 **文件**：`app/ratings.py`
 - `/novels/<id>/rate` POST → 提交评分（score 1-5 + comment）
-- 计算平均评分：`Rating.query.filter_by(novel_id=xxx).with_entities(func.avg(Rating.score))`
+- **计算平均评分**：`Rating.query.filter_by(novel_id=xxx).with_entities(func.avg(Rating.score))`，四舍五入为 1-5 整数
+- **写入 Novel.user_rating**：每次评分后更新 `Novel.user_rating` 字段
 
 #### Task 10: 实现小说列表与详情模块
 **文件**：`app/novels.py` + `templates/novels/*.html`
-- `/novels` GET → 小说列表（支持分类/标签筛选）
-- `/novels/<id>` GET → 小说详情页（标签、章节目录、评分、收藏状态）
-- `/novels/<id>/delete` POST → 删除小说（级联删除章节、进度、书签、收藏、评分）
+- `/novels` GET → 小说列表（支持分类/标签筛选，支持按**评分/最后阅读时间/书籍字数**排序，排序分为正序与反序，筛选与排序可合并）
+- `/novels/<id>` GET → 小说详情页（标签、章节目录、评分、收藏状态、查看/编辑/删除书籍规则）
+- `/novels/<id>/delete` POST → 删除小说（级联删除章节、进度、书签、收藏、评分、书籍规则）
 
 #### Task 11: 实现小说阅读模块
 **文件**：`app/reading.py` + `templates/reading.html`
@@ -340,9 +348,11 @@ Task 17（主题切换） ──> Task 18（验证测试）
 - ✅ 分类管理：创建、编辑、删除
 - ✅ 标签管理：创建、编辑、删除、小说关联
 - ✅ 章节规则：8 大类默认规则、新增/编辑/删除/恢复默认
-- ✅ TXT 导入 4 步：上传转码、选择规则、预览删除、确认保存
+- ✅ **书籍规则**：每本书可查看、编辑、删除独立的章节拆分规则（长期保存）
+- ✅ TXT 导入 4 步：上传转码、选择规则（可保存为本书规则）、预览删除、确认保存
 - ✅ 收藏功能：收藏、取消收藏、收藏列表
-- ✅ 评分功能：首次评分、修改评分、平均评分显示
+- ✅ **评分功能**：首次评分、修改评分、平均评分写入 Novel.user_rating（四舍五入为 1-5 整数）
+- ✅ **小说列表排序**：按评分/最后阅读时间/书籍字数排序（正序/反序），筛选与排序可合并
 - ✅ 阅读功能：进度记录、书签、章节切换
 - ✅ 在线编辑：修改章节标题与正文
 - ✅ 导出 TXT：文件下载、章节拼接
@@ -380,9 +390,10 @@ Task 17（主题切换） ──> Task 18（验证测试）
 
 ### 5.1 关键决策
 1. **章节数量统计**：不存储到数据库，实时查询 `Chapter.query.filter_by(novel_id=xxx).count()`
-2. **平均评分**：不存储到 Novel 表，实时计算 `func.avg(Rating.score)`
+2. **平均评分**：**存储到 Novel.user_rating 字段**，四舍五入为 1-5 整数，每次用户评价后重新计算写入
 3. **主题切换**：不使用 Flask session，使用 localStorage（前端持久化）
 4. **临时文件清理**：导入成功后删除临时文件，避免磁盘占用
+5. **书籍独立规则**：`NovelChapterRule` 表存储每本书的独立章节拆分规则，与 Novel 一对一关系，只对本书有效
 
 ### 5.2 潜在风险
 1. **大文件上传**：需设置 `MAX_CONTENT_LENGTH = 50MB`（Layui 限制）
