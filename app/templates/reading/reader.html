@@ -1,12 +1,88 @@
-<!DOCTYPE html>
-<html>
-<head><title>{{ novel.title }} - {{ chapter.title }}</title></head>
-<body>
-<h1>{{ chapter.title }}</h1>
-<div>{{ chapter.content }}</div>
-<div>
-  {% if prev_chapter %}<a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=prev_chapter.id) }}">Prev</a>{% endif %}
-  {% if next_chapter %}<a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=next_chapter.id) }}">Next</a>{% endif %}
+{% extends "base.html" %}
+{% block title %}{{ chapter.title }} · {{ novel.title }} · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>{{ chapter.title }}</h1>
+      <p><a href="{{ url_for('novels.detail', id=novel.id) }}" style="color:var(--accent); text-decoration:none;">{{ novel.title }}</a></p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=chapter.id) }}" class="btn btn-secondary btn-sm">编辑</a>
+      <button class="btn btn-secondary btn-sm" id="bookmarkBtn" title="添加书签">🔖 书签</button>
+    </div>
+  </div>
 </div>
-</body>
-</html>
+
+<div class="card" style="margin-bottom:24px; padding:32px;">
+  <div class="reader-content" style="font-family:var(--font-display); font-size:1.05rem; line-height:2; color:var(--text-primary); white-space:pre-wrap; word-break:break-word;">
+    {{ chapter.content }}
+  </div>
+</div>
+
+<div class="flex-between" style="flex-wrap:wrap; gap:12px; margin-bottom:32px;">
+  <div style="display:flex; gap:8px;">
+    {% if prev_chapter %}
+    <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=prev_chapter.id) }}" class="btn btn-secondary">← {{ prev_chapter.title }}</a>
+    {% else %}
+    <span class="btn btn-secondary" style="opacity:0.4; cursor:default;">← 已是第一章</span>
+    {% endif %}
+  </div>
+  <div style="display:flex; gap:8px;">
+    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="btn btn-secondary">目录</a>
+    {% if next_chapter %}
+    <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=next_chapter.id) }}" class="btn btn-primary">{{ next_chapter.title }} →</a>
+    {% else %}
+    <span class="btn btn-primary" style="opacity:0.4; cursor:default;">已是最后一章 →</span>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function() {
+  const novelId = {{ novel.id }};
+  const chapterId = {{ chapter.id }};
+
+  // Save reading progress on scroll
+  let scrollTimer;
+  window.addEventListener('scroll', () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const scrollPos = Math.round(window.scrollY);
+      fetch('/api/progress', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({novel_id: novelId, chapter_id: chapterId, scroll_position: scrollPos})
+      });
+    }, 1000);
+  });
+
+  // Bookmark
+  document.getElementById('bookmarkBtn').addEventListener('click', () => {
+    const title = prompt('书签标题：', '{{ chapter.title }}');
+    if (title) {
+      fetch('/api/bookmark', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({novel_id: novelId, chapter_id: chapterId, title: title, position: Math.round(window.scrollY)})
+      }).then(res => res.json()).then(data => {
+        if (data.status === 'ok') alert('书签已添加');
+      });
+    }
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    {% if prev_chapter %}
+    if (e.key === 'ArrowLeft' || e.key === 'a') window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=prev_chapter.id) }}';
+    {% endif %}
+    {% if next_chapter %}
+    if (e.key === 'ArrowRight' || e.key === 'd') window.location.href = '{{ url_for("reading.read_chapter", novel_id=novel.id, chapter_id=next_chapter.id) }}';
+    {% endif %}
+  });
+})();
+</script>
+
+{% endblock %}

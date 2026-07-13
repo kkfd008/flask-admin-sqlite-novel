@@ -37,7 +37,7 @@ class TestSearch:
         response = client.get('/search?q=nonexistent', follow_redirects=True)
         assert response.status_code == 200
         data = response.data.decode('utf-8')
-        assert 'no result' in data.lower() or 'not found' in data.lower()
+        assert 'no result' in data.lower() or 'not found' in data.lower() or '未找到' in data
 
     def test_search_empty_query(self, client, app):
         with app.app_context():

@@ -1,10 +1,106 @@
-<!DOCTYPE html>
-<html>
-<head><title>Categories</title></head>
-<body>
-<h1>Categories</h1>
-{% for cat in categories %}
-<div>{{ cat.name }}</div>
-{% endfor %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}分类管理 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>分类管理</h1>
+      <p>管理小说分类，共 {{ categories|length }} 个分类</p>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('createForm').style.display='block'; this.style.display='none';">新建分类</button>
+  </div>
+</div>
+
+<div class="card mb-3" id="createForm" style="display:none;">
+  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">新建分类</h3>
+  <form method="post" action="{{ url_for('categories.create') }}">
+    <div style="display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:12px; align-items:end;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="name">名称</label>
+        <input class="form-input" type="text" id="name" name="name" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="description">描述</label>
+        <input class="form-input" type="text" id="description" name="description">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="sort_order">排序</label>
+        <input class="form-input" type="number" id="sort_order" name="sort_order" value="0">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">添加</button>
+    </div>
+  </form>
+</div>
+
+{% if categories %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>名称</th>
+        <th>描述</th>
+        <th>排序</th>
+        <th style="width:200px;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cat in categories %}
+      <tr>
+        <td><strong>{{ cat.name }}</strong></td>
+        <td class="text-muted">{{ cat.description or '-' }}</td>
+        <td>{{ cat.sort_order }}</td>
+        <td>
+          <div style="display:flex; gap:4px;">
+            <button class="btn btn-secondary btn-xs" onclick="editCat({{ cat.id }}, '{{ cat.name }}', '{{ cat.description or '' }}', {{ cat.sort_order }})">编辑</button>
+            <form method="post" action="{{ url_for('categories.delete', id=cat.id) }}" style="display:inline;" onsubmit="return confirm('确定删除分类「{{ cat.name }}」？')">
+              <button type="submit" class="btn btn-danger btn-xs">删除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">📁</div>
+  <h3>暂无分类</h3>
+  <p>创建分类来组织你的小说</p>
+</div>
+{% endif %}
+
+<div class="card mt-3" id="editForm" style="display:none;">
+  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">编辑分类</h3>
+  <form method="post" id="editFormInner">
+    <div style="display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:12px; align-items:end;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="edit_name">名称</label>
+        <input class="form-input" type="text" id="edit_name" name="name" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="edit_description">描述</label>
+        <input class="form-input" type="text" id="edit_description" name="description">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="edit_sort_order">排序</label>
+        <input class="form-input" type="number" id="edit_sort_order" name="sort_order" value="0">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">保存</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function editCat(id, name, desc, order) {
+  document.getElementById('editForm').style.display = 'block';
+  document.getElementById('editFormInner').action = '/categories/' + id + '/edit';
+  document.getElementById('edit_name').value = name;
+  document.getElementById('edit_description').value = desc;
+  document.getElementById('edit_sort_order').value = order;
+  document.getElementById('editForm').scrollIntoView({behavior:'smooth'});
+}
+</script>
+
+{% endblock %}

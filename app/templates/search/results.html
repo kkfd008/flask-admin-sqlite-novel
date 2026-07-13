@@ -1,17 +1,54 @@
-<!DOCTYPE html>
-<html>
-<head><title>Search Results</title></head>
-<body>
-<h1>Search: {{ query }}</h1>
-{% if results %}
-{% for r in results %}
-<div>
-  <strong>{{ r.novel_title }}</strong> - {{ r.chapter_title }}
-  <p>{{ r.snippet }}</p>
+{% extends "base.html" %}
+{% block title %}搜索 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>全文搜索</h1>
+  <p>在所有章节内容中搜索</p>
 </div>
-{% endfor %}
+
+<form method="get" action="{{ url_for('search.search') }}">
+  <div class="search-bar">
+    <input class="form-input" type="text" name="q" value="{{ query }}" placeholder="输入关键词搜索..." autofocus>
+    <button type="submit" class="btn btn-primary">搜索</button>
+  </div>
+</form>
+
+{% if query %}
+  {% if results %}
+  <div class="mb-2">
+    <p class="text-muted" style="font-size:0.85rem;">找到 {{ results|length }} 条结果</p>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    {% for r in results %}
+    <a href="{{ url_for('reading.read_chapter', novel_id=r.novel_id, chapter_id=r.chapter_id) }}" class="card" style="text-decoration:none; display:block; padding:20px;">
+      <div class="flex-between mb-1">
+        <div>
+          <strong style="color:var(--text-primary);">{{ r.novel_title }}</strong>
+          <span class="text-muted" style="margin:0 8px;">·</span>
+          <span style="color:var(--text-secondary);">{{ r.chapter_title }}</span>
+        </div>
+        <span class="badge badge-outline" style="flex-shrink:0;">查看章节</span>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.6; margin-top:8px; background:var(--bg-elevated); padding:10px 14px; border-radius:var(--radius-sm);">
+        ...{{ r.snippet }}...
+      </p>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">🔍</div>
+    <h3>未找到结果</h3>
+    <p>没有找到包含「{{ query }}」的章节内容</p>
+  </div>
+  {% endif %}
 {% else %}
-<div>No results found</div>
+<div class="empty-state">
+  <div class="icon">🔍</div>
+  <h3>输入关键词开始搜索</h3>
+  <p>搜索小说标题、章节内容中的关键词</p>
+</div>
 {% endif %}
-</body>
-</html>
+
+{% endblock %}

@@ -1,11 +1,54 @@
-<!DOCTYPE html>
-<html>
-<head><title>Import Step 1</title></head>
-<body>
-<h1>Upload TXT</h1>
-<form method="post" enctype="multipart/form-data">
-  <input type="file" name="file" accept=".txt">
-  <button type="submit">Upload</button>
-</form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}导入小说 · 第一步 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>导入小说</h1>
+  <p>第一步：上传 TXT 文件</p>
+</div>
+
+<div class="card" style="max-width:600px; margin:0 auto;">
+  <div style="display:flex; gap:4px; margin-bottom:24px;">
+    <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">1. 上传</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">2. 规则</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">3. 预览</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">4. 确认</span>
+  </div>
+
+  {% if error %}
+  <div class="flash flash-error mb-2">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    <div style="border:2px dashed var(--border); border-radius:var(--radius-md); padding:40px; text-align:center; margin-bottom:20px; transition:all var(--transition);" id="dropZone">
+      <div class="text-muted" style="font-size:2.5rem; margin-bottom:12px;">📄</div>
+      <p style="font-weight:500; color:var(--text-primary);">拖拽 TXT 文件到此处</p>
+      <p class="text-muted mt-1" style="font-size:0.8rem;">或点击下方按钮选择文件</p>
+      <input class="form-input mt-2" type="file" name="file" id="fileInput" accept=".txt" required style="max-width:300px; margin:0 auto;">
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;">上传并继续</button>
+  </form>
+</div>
+
+<script>
+(function() {
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  ['dragenter','dragover','dragleave','drop'].forEach(e => {
+    dropZone.addEventListener(e, ev => ev.preventDefault());
+  });
+  dropZone.addEventListener('drop', (e) => {
+    dropZone.style.borderColor = 'var(--border)';
+    if (e.dataTransfer.files.length) fileInput.files = e.dataTransfer.files;
+  });
+  ['dragenter','dragover'].forEach(e => {
+    dropZone.addEventListener(e, () => { dropZone.style.borderColor = 'var(--accent)'; });
+  });
+  dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border)'; });
+})();
+</script>
+
+{% endblock %}

@@ -1,10 +1,69 @@
-<!DOCTYPE html>
-<html>
-<head><title>{{ novel.title }} - Rules</title></head>
-<body>
-<h1>{{ novel.title }} - Chapter Rules</h1>
-{% for rule in rules %}
-<div>{{ rule.pattern }} - {{ rule.description }}</div>
-{% endfor %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}{{ novel.title }} · 章节规则 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>章节规则</h1>
+      <p><a href="{{ url_for('novels.detail', id=novel.id) }}" style="color:var(--accent); text-decoration:none;">{{ novel.title }}</a> · 自定义章节识别规则</p>
+    </div>
+    <a href="{{ url_for('novels.detail', id=novel.id) }}" class="btn btn-secondary btn-sm">返回详情</a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">
+    {% if rules %}编辑规则{% else %}创建规则{% endif %}
+  </h3>
+  <form method="post" action="{{ url_for('novels.rules_create', id=novel.id) }}">
+    <div style="display:grid; grid-template-columns:1fr; gap:12px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="pattern">正则表达式</label>
+        <input class="form-input" type="text" id="pattern" name="pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章" value="{{ rules[0].pattern if rules else '' }}" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="description">规则描述</label>
+        <input class="form-input" type="text" id="description" name="description" placeholder="描述此规则的用途" value="{{ rules[0].description if rules else '' }}">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm mt-2">保存规则</button>
+  </form>
+</div>
+
+{% if rules %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>正则表达式</th>
+        <th>描述</th>
+        <th>创建时间</th>
+        <th style="width:120px;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rule in rules %}
+      <tr>
+        <td><code style="background:var(--bg-elevated); padding:2px 8px; border-radius:4px; font-size:0.85rem;">{{ rule.pattern }}</code></td>
+        <td>{{ rule.description or '-' }}</td>
+        <td class="text-muted">{{ rule.created_at.strftime('%Y-%m-%d %H:%M') if rule.created_at else '-' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('novels.rules_delete', id=novel.id, rule_id=rule.id) }}" style="display:inline;" onsubmit="return confirm('确定删除此规则？')">
+            <button type="submit" class="btn btn-danger btn-xs">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">⚙️</div>
+  <h3>暂无自定义规则</h3>
+  <p>为此小说创建专属的章节识别正则表达式</p>
+</div>
+{% endif %}
+
+{% endblock %}

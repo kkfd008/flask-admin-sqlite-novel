@@ -1,10 +1,86 @@
-<!DOCTYPE html>
-<html>
-<head><title>Tags</title></head>
-<body>
-<h1>Tags</h1>
-{% for tag in tags %}
-<div>{{ tag.name }}</div>
-{% endfor %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}标签管理 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>标签管理</h1>
+      <p>管理小说标签，共 {{ tags|length }} 个标签</p>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('createForm').style.display='block'; this.style.display='none';">新建标签</button>
+  </div>
+</div>
+
+<div class="card mb-3" id="createForm" style="display:none;">
+  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">新建标签</h3>
+  <form method="post" action="{{ url_for('tags.create') }}">
+    <div style="display:grid; grid-template-columns:2fr 1fr auto; gap:12px; align-items:end;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="name">名称</label>
+        <input class="form-input" type="text" id="name" name="name" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="color">颜色</label>
+        <input class="form-input" type="color" id="color" name="color" value="#C53030" style="height:42px; padding:4px; cursor:pointer;">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">添加</button>
+    </div>
+  </form>
+</div>
+
+{% if tags %}
+<div class="grid grid-3">
+  {% for tag in tags %}
+  <div class="card" style="padding:16px;">
+    <div class="flex-between">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="width:12px; height:12px; border-radius:3px; background:{{ tag.color }}; flex-shrink:0;"></span>
+        <strong>{{ tag.name }}</strong>
+      </div>
+      <div style="display:flex; gap:4px;">
+        <button class="btn btn-secondary btn-xs" onclick="editTag({{ tag.id }}, '{{ tag.name }}', '{{ tag.color }}')">编辑</button>
+        <form method="post" action="{{ url_for('tags.delete', id=tag.id) }}" style="display:inline;" onsubmit="return confirm('确定删除标签「{{ tag.name }}」？')">
+          <button type="submit" class="btn btn-danger btn-xs">删除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">🏷️</div>
+  <h3>暂无标签</h3>
+  <p>创建标签来分类你的小说</p>
+</div>
+{% endif %}
+
+<div class="card mt-3" id="editForm" style="display:none;">
+  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">编辑标签</h3>
+  <form method="post" id="editFormInner">
+    <div style="display:grid; grid-template-columns:2fr 1fr auto; gap:12px; align-items:end;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="edit_name">名称</label>
+        <input class="form-input" type="text" id="edit_name" name="name" required>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="edit_color">颜色</label>
+        <input class="form-input" type="color" id="edit_color" name="color" style="height:42px; padding:4px; cursor:pointer;">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">保存</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function editTag(id, name, color) {
+  document.getElementById('editForm').style.display = 'block';
+  document.getElementById('editFormInner').action = '/tags/' + id + '/edit';
+  document.getElementById('edit_name').value = name;
+  document.getElementById('edit_color').value = color;
+  document.getElementById('editForm').scrollIntoView({behavior:'smooth'});
+}
+</script>
+
+{% endblock %}

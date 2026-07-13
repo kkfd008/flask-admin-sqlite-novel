@@ -1,9 +1,160 @@
-<!DOCTYPE html>
-<html>
-<head><title>{{ novel.title }}</title></head>
-<body>
-<h1>{{ novel.title }}</h1>
-<div>Author: {{ novel.author }}</div>
-<div>Rating: {{ novel.user_rating }}</div>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}{{ novel.title }} · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>{{ novel.title }}</h1>
+      {% if novel.author %}<p>{{ novel.author }} 著</p>{% endif %}
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <form method="post" action="{{ url_for('favorites.favorite', novel_id=novel.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-secondary btn-sm">☆ 收藏</button>
+      </form>
+      <form method="post" action="{{ url_for('favorites.unfavorite', novel_id=novel.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-secondary btn-sm">★ 取消收藏</button>
+      </form>
+      <a href="{{ url_for('novels.rules_list', id=novel.id) }}" class="btn btn-secondary btn-sm">规则</a>
+      <form method="post" action="{{ url_for('novels.delete', id=novel.id) }}" style="display:inline;" onsubmit="return confirm('确定要删除《{{ novel.title }}》吗？此操作不可恢复。')">
+        <button type="submit" class="btn btn-danger btn-sm">删除</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:32px;">
+  <div class="card">
+    <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">作品信息</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.9rem;">
+      <div>
+        <span class="text-muted">评分</span>
+        <div class="stars mt-1">
+          {% for i in range(5) %}
+          <span class="{% if i < novel.user_rating %}full{% else %}empty{% endif %}">{% if i < novel.user_rating %}★{% else %}☆{% endif %}</span>
+          {% endfor %}
+          <span class="text-muted" style="font-size:0.8rem;">({{ novel.user_rating }}/5)</span>
+        </div>
+      </div>
+      <div>
+        <span class="text-muted">分类</span>
+        <p class="mt-1">{{ novel.category.name if novel.category else '未分类' }}</p>
+      </div>
+      <div>
+        <span class="text-muted">总字数</span>
+        <p class="mt-1">{{ novel.word_count }} 字</p>
+      </div>
+      <div>
+        <span class="text-muted">章节数</span>
+        <p class="mt-1">{{ novel.chapter_count }} 章</p>
+      </div>
+      <div>
+        <span class="text-muted">添加时间</span>
+        <p class="mt-1">{{ novel.created_at.strftime('%Y-%m-%d') if novel.created_at else '-' }}</p>
+      </div>
+      <div>
+        <span class="text-muted">最近更新</span>
+        <p class="mt-1">{{ novel.updated_at.strftime('%Y-%m-%d') if novel.updated_at else '-' }}</p>
+      </div>
+    </div>
+    {% if novel.tags %}
+    <div class="mt-2" style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="text-muted" style="font-size:0.8rem;">标签：</span>
+      {% for tag in novel.tags %}
+      <span class="badge" style="background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}33;">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if novel.description %}
+    <div class="mt-2">
+      <span class="text-muted" style="font-size:0.8rem;">简介</span>
+      <p style="font-size:0.9rem; line-height:1.7; margin-top:4px; color:var(--text-primary);">{{ novel.description }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">评分</h3>
+    <form method="post" action="{{ url_for('ratings.rate', novel_id=novel.id) }}">
+      <div class="form-group">
+        <label class="form-label">评分</label>
+        <div style="display:flex; gap:4px; margin-bottom:4px;">
+          {% for i in range(1, 6) %}
+          <label style="cursor:pointer; font-size:1.5rem; color:var(--star-color);">
+            <input type="radio" name="score" value="{{ i }}" style="display:none;" {% if novel.user_rating == i %}checked{% endif %}>
+            {{ '★' * i }}{{ '☆' * (5 - i) }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="comment">短评（可选）</label>
+        <textarea class="form-textarea" name="comment" id="comment" rows="2" placeholder="写下你的感受..."></textarea>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="submit" class="btn btn-primary btn-sm">提交评分</button>
+        <form method="post" action="{{ url_for('ratings.delete_rating', novel_id=novel.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-secondary btn-sm">清除评分</button>
+        </form>
+      </div>
+    </form>
+
+    <h3 style="font-family:var(--font-display); font-size:1rem; margin:24px 0 16px; color:var(--text-secondary);">标签管理</h3>
+    <form method="post" action="{{ url_for('novels.update_tags', id=novel.id) }}">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% for tag in all_tags %}
+        <label class="badge" style="cursor:pointer; background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}33; {% if tag in novel.tags %}opacity:1;{% else %}opacity:0.5;{% endif %}">
+          <input type="checkbox" name="tag_ids" value="{{ tag.id }}" {% if tag in novel.tags %}checked{% endif %} style="display:none;">
+          {{ tag.name }}
+        </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-secondary btn-sm mt-2">更新标签</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="flex-between mb-3">
+    <h3 style="font-family:var(--font-display); font-size:1rem; color:var(--text-secondary);">目录</h3>
+    <span class="text-muted" style="font-size:0.8rem;">共 {{ chapters|length }} 章</span>
+  </div>
+  {% if chapters %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;">序号</th>
+          <th>章节标题</th>
+          <th style="width:80px;">字数</th>
+          <th style="width:120px;">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ch in chapters %}
+        <tr>
+          <td>{{ ch.order }}</td>
+          <td>
+            <a href="{{ url_for('reading.read_chapter', novel_id=novel.id, chapter_id=ch.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:500;">
+              {{ ch.title }}
+            </a>
+          </td>
+          <td class="text-muted">{{ ch.word_count }}</td>
+          <td>
+            <a href="{{ url_for('editor.edit_chapter', novel_id=novel.id, chapter_id=ch.id) }}" class="btn btn-secondary btn-xs">编辑</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">📖</div>
+    <h3>暂无章节</h3>
+    <p>请先导入小说内容</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

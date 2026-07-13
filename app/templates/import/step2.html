@@ -1,16 +1,43 @@
-<!DOCTYPE html>
-<html>
-<head><title>Import Step 2</title></head>
-<body>
-<h1>Select Rule</h1>
-<form method="post">
-  <select name="rule_id">
-    {% for rule in rules %}
-    <option value="{{ rule.id }}">{{ rule.name }}</option>
-    {% endfor %}
-  </select>
-  <input type="text" name="custom_pattern" placeholder="Custom regex">
-  <button type="submit">Next</button>
-</form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}导入小说 · 第二步 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>导入小说</h1>
+  <p>第二步：选择章节识别规则</p>
+</div>
+
+<div class="card" style="max-width:600px; margin:0 auto;">
+  <div style="display:flex; gap:4px; margin-bottom:24px;">
+    <span class="badge badge-outline">1. 上传</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">2. 规则</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">3. 预览</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">4. 确认</span>
+  </div>
+
+  <form method="post">
+    <div class="form-group">
+      <label class="form-label" for="rule_id">选择预设规则</label>
+      <select class="form-select" name="rule_id" id="rule_id">
+        <option value="">-- 选择规则 --</option>
+        {% for rule in rules %}
+        <option value="{{ rule.id }}">{{ rule.name }} ({{ rule.pattern }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="text-align:center; color:var(--text-muted); margin:8px 0; font-size:0.85rem;">— 或者 —</div>
+    <div class="form-group">
+      <label class="form-label" for="custom_pattern">自定义正则表达式</label>
+      <input class="form-input" type="text" name="custom_pattern" id="custom_pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章">
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('importer.step1') }}" class="btn btn-secondary">上一步</a>
+      <button type="submit" class="btn btn-primary" style="flex:1;">下一步</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

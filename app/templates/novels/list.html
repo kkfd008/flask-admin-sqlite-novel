@@ -1,10 +1,90 @@
-<!DOCTYPE html>
-<html>
-<head><title>Novels</title></head>
-<body>
-<h1>Novel List</h1>
-{% for novel in novels %}
-<div>{{ novel.title }}</div>
-{% endfor %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}书架 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>书架</h1>
+  <p>共 {{ novels|length }} 部作品</p>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <form method="get" class="search-bar" style="margin-bottom:0;">
+      <select name="category_id" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        <option value="">全部分类</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if request.args.get('category_id')|string == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="tag_id" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        <option value="">全部标签</option>
+        {% for tag in tags %}
+        <option value="{{ tag.id }}" {% if request.args.get('tag_id')|string == tag.id|string %}selected{% endif %}>{{ tag.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="sort_by" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        <option value="created_at" {% if request.args.get('sort_by','created_at')=='created_at' %}selected{% endif %}>按添加时间</option>
+        <option value="title" {% if request.args.get('sort_by')=='title' %}selected{% endif %}>按标题</option>
+        <option value="user_rating" {% if request.args.get('sort_by')=='user_rating' %}selected{% endif %}>按评分</option>
+        <option value="word_count" {% if request.args.get('sort_by')=='word_count' %}selected{% endif %}>按字数</option>
+      </select>
+      <select name="sort_order" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        <option value="desc" {% if request.args.get('sort_order','desc')=='desc' %}selected{% endif %}>降序</option>
+        <option value="asc" {% if request.args.get('sort_order')=='asc' %}selected{% endif %}>升序</option>
+      </select>
+      {% if request.args.get('category_id') or request.args.get('tag_id') %}
+      <a href="{{ url_for('novels.list') }}" class="btn btn-secondary btn-sm">清除筛选</a>
+      {% endif %}
+    </form>
+  </div>
+  <div class="toolbar-right">
+    <a href="{{ url_for('importer.step1') }}" class="btn btn-primary btn-sm">导入小说</a>
+  </div>
+</div>
+
+{% if novels %}
+<div class="grid grid-3">
+  {% for novel in novels %}
+  <a href="{{ url_for('novels.detail', id=novel.id) }}" class="card" style="text-decoration:none; display:block; padding:20px;">
+    <div class="flex-between mb-1">
+      <h3 style="font-family:var(--font-display); font-size:1.05rem; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">{{ novel.title }}</h3>
+      {% if novel.user_rating %}
+      <span class="stars" style="flex-shrink:0;">
+        {% for i in range(5) %}
+        <span class="{% if i < novel.user_rating %}full{% else %}empty{% endif %}">{% if i < novel.user_rating %}★{% else %}☆{% endif %}</span>
+        {% endfor %}
+      </span>
+      {% endif %}
+    </div>
+    {% if novel.author %}
+    <p class="text-muted mb-1" style="font-size:0.8rem;">{{ novel.author }}</p>
+    {% endif %}
+    {% if novel.description %}
+    <p style="font-size:0.8rem; color:var(--text-secondary); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5;">{{ novel.description }}</p>
+    {% endif %}
+    <div class="flex-between mt-2" style="font-size:0.75rem; color:var(--text-muted);">
+      <span>
+        {% if novel.category %}<span class="badge badge-outline">{{ novel.category.name }}</span>{% endif %}
+      </span>
+      <span>{{ novel.word_count }} 字 · {{ novel.chapter_count }} 章</span>
+    </div>
+    {% if novel.tags %}
+    <div class="mt-1" style="display:flex; gap:4px; flex-wrap:wrap;">
+      {% for tag in novel.tags %}
+      <span class="badge" style="background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}33;">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">📚</div>
+  <h3>书架空空如也</h3>
+  <p class="mt-1">点击右上角「导入小说」开始你的阅读之旅</p>
+  <a href="{{ url_for('importer.step1') }}" class="btn btn-primary mt-2">导入第一本小说</a>
+</div>
+{% endif %}
+
+{% endblock %}

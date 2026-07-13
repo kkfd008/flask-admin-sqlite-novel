@@ -1,14 +1,46 @@
-<!DOCTYPE html>
-<html>
-<head><title>Import Step 4</title></head>
-<body>
-<h1>Confirm</h1>
-<p>Chapters: {{ chapter_count }}</p>
-<form method="post">
-  <input type="text" name="title" placeholder="Title">
-  <input type="text" name="author" placeholder="Author (optional)">
-  <input type="number" name="category_id" placeholder="Category ID">
-  <button type="submit">Import</button>
-</form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}导入小说 · 第四步 · 墨斋{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>导入小说</h1>
+  <p>第四步：确认信息并导入</p>
+</div>
+
+<div class="card" style="max-width:600px; margin:0 auto;">
+  <div style="display:flex; gap:4px; margin-bottom:24px;">
+    <span class="badge badge-outline">1. 上传</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">2. 规则</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge badge-outline">3. 预览</span>
+    <span style="color:var(--border);">→</span>
+    <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">4. 确认</span>
+  </div>
+
+  <div class="mb-3" style="background:var(--bg-elevated); border-radius:var(--radius-sm); padding:16px; text-align:center;">
+    <p style="font-size:1.5rem; font-weight:700; color:var(--accent);">{{ chapter_count }}</p>
+    <p class="text-muted" style="font-size:0.85rem;">个章节将被导入</p>
+  </div>
+
+  <form method="post">
+    <div class="form-group">
+      <label class="form-label" for="title">小说标题 *</label>
+      <input class="form-input" type="text" id="title" name="title" placeholder="输入小说标题" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="author">作者（可选）</label>
+      <input class="form-input" type="text" id="author" name="author" placeholder="输入作者名">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="category_id">分类（可选）</label>
+      <input class="form-input" type="number" id="category_id" name="category_id" placeholder="输入分类 ID" min="1">
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('importer.step3') }}" class="btn btn-secondary">上一步</a>
+      <button type="submit" class="btn btn-primary" style="flex:1;">确认导入</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

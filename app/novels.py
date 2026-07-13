@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session
-from app.models import db, Novel, Category, Tag, NovelChapterRule
+from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule
 from app.auth import login_required
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
@@ -38,7 +38,9 @@ def list():
 @login_required
 def detail(id):
     novel = Novel.query.get_or_404(id)
-    return render_template('novels/detail.html', novel=novel)
+    chapters = Chapter.query.filter_by(novel_id=id).order_by(Chapter.order).all()
+    all_tags = Tag.query.all()
+    return render_template('novels/detail.html', novel=novel, chapters=chapters, all_tags=all_tags)
 
 
 @novels_bp.route('/<int:id>/delete', methods=['POST'])
