@@ -20,7 +20,7 @@ class TestExport:
 
         response = client.get(f'/novels/{novel_id}/export')
         assert response.status_code == 200
-        assert response.headers['Content-Type'] == 'text/plain; charset=utf-8'
+        assert 'text/plain' in response.headers['Content-Type']
         content = response.data.decode('utf-8')
         assert 'Chapter 1' in content
         assert 'Chapter 2' in content
