@@ -206,3 +206,97 @@ class TestImporter:
         assert '第1章' in html, f'大量章节时 session 不应丢失，实际: {html[:500]}'
         assert '第200章' in html
         assert '第三步' in html or '预览' in html or '识别' in html
+
+    def test_step4_title_defaults_to_filename(self, client, app):
+        """小说标题默认携带上传文件名"""
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是内容\n第2章 继续\n更多内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={}, follow_redirects=True)
+
+        response = client.get('/novels/import/step4', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        # 标题输入框应默认填文件名
+        assert '剑来' in html, f'标题应默认显示文件名，实际: {html[:500]}'
+
+    def test_step4_shows_categories_as_radio(self, client, app):
+        """分类全部显示为单选框，不能为空，必选"""
+        cat_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={}, follow_redirects=True)
+
+        response = client.get('/novels/import/step4', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        # 分类应以 radio 形式显示
+        assert '武侠' in html
+        assert f'value="{cat_id}"' in html, f'radio 应有 value="{cat_id}"'
+        assert 'type="radio"' in html, '分类应为 radio 单选框'
+        assert 'required' in html, '分类应为必选'
+
+    def test_step4_submit_creates_novel(self, client, app):
+        """提交 step4 应成功创建小说，不报 AttributeError"""
+        cat_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={}, follow_redirects=True)
+
+        # 提交 step4
+        response = client.post('/novels/import/step4', data={
+            'title': '测试小说',
+            'author': '测试作者',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        # 应跳转到小说详情页
+        assert '测试小说' in html, f'应显示小说详情，实际: {html[:500]}'
+        assert '测试作者' in html
+
+        with app.app_context():
+            from app.models import Novel
+            novel = Novel.query.filter_by(title='测试小说').first()
+            assert novel is not None, '小说应成功创建'
+            assert novel.author == '测试作者'
+            assert novel.category_id == cat_id
+            assert novel.chapter_count == 2

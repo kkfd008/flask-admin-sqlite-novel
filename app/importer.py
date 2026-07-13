@@ -3,7 +3,7 @@ import re
 import chardet
 from flask import Blueprint, render_template, redirect, url_for, request, session
 from werkzeug.utils import secure_filename
-from app.models import db, Novel, Chapter, ChapterRule
+from app.models import db, Novel, Chapter, ChapterRule, Category
 from app.auth import login_required
 from app.utils import DEFAULT_RULES
 
@@ -24,6 +24,10 @@ def step1():
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
+
+        # 保存原始文件名（不含扩展名）用于显示
+        raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
+        session['import_original_filename'] = raw_name
 
         raw_data = open(filepath, 'rb').read()
         detected = chardet.detect(raw_data)
@@ -130,8 +134,10 @@ def step4():
             content = f.read()
 
         pattern = session.get('import_pattern', '')
+        if not pattern:
+            pattern = DEFAULT_RULES[0]['pattern']
 
-        novel = Novel(title=title, author=author if author else None)
+        novel = Novel(title=title, author=author.strip() if author else None)
         if category_id:
             novel.category_id = int(category_id)
         db.session.add(novel)
@@ -140,7 +146,7 @@ def step4():
         parts = re.split(f'({pattern})', content, flags=re.MULTILINE)
 
         chapter_order = 0
-        preamble = parts[0].strip() if parts else ''
+        preamble = parts[0].strip() if parts and parts[0] else ''
         if preamble:
             chapter_order += 1
             ch = Chapter(novel_id=novel.id, title='序章', content=preamble, order=chapter_order)
@@ -160,10 +166,16 @@ def step4():
 
         session.pop('import_filepath', None)
         session.pop('import_filename', None)
+        session.pop('import_original_filename', None)
         session.pop('import_pattern', None)
         session.pop('import_chapter_titles', None)
 
         return redirect(url_for('novels.detail', id=novel.id))
 
     chapter_count = len(session.get('import_chapter_titles', []))
-    return render_template('import/step4.html', chapter_count=chapter_count)
+    categories = Category.query.order_by(Category.sort_order).all()
+    import_filename = session.get('import_original_filename', '')
+    return render_template('import/step4.html',
+                           chapter_count=chapter_count,
+                           categories=categories,
+                           import_filename=import_filename)
