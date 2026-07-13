@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><title>Search Results</title></head>
+<body>
+<h1>Search: {{ query }}</h1>
+{% if results %}
+{% for r in results %}
+<div>
+  <strong>{{ r.novel_title }}</strong> - {{ r.chapter_title }}
+  <p>{{ r.snippet }}</p>
+</div>
+{% endfor %}
+{% else %}
+<div>No results found</div>
+{% endif %}
+</body>
+</html>
