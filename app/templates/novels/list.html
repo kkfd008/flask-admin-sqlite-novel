@@ -477,14 +477,6 @@ function setFilter(name, value) {
   form.submit();
 }
 
-function openTagModal() {
-  document.getElementById('tagFilterModal').classList.add('active');
-}
-
-function closeTagModal() {
-  document.getElementById('tagFilterModal').classList.remove('active');
-}
-
 function syncSort(select) {
   var form = document.getElementById('filter-form');
   form.querySelector('input[name="sort_by"]').value = select.value;
