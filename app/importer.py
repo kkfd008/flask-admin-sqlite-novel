@@ -5,7 +5,7 @@ import chardet
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, session
 from werkzeug.utils import secure_filename
-from app.models import db, Novel, Chapter, ChapterRule, Category, Upload
+from app.models import db, Novel, Chapter, ChapterRule, Category, Upload, NovelChapterRule, Favorite, Rating, ReadingProgress, Bookmark
 from app.auth import login_required
 from app.utils import DEFAULT_RULES, get_best_pattern, split_chapters, split_by_fixed_length
 
@@ -64,6 +64,21 @@ def step1():
                                        error=None)
 
         if existing and overwrite:
+            # 覆盖原书籍和章节
+            if existing.novel_id and request.form.get('overwrite_novel'):
+                old_novel = Novel.query.get(existing.novel_id)
+                if old_novel:
+                    Chapter.query.filter_by(novel_id=old_novel.id).delete()
+                    NovelChapterRule.query.filter_by(novel_id=old_novel.id).delete()
+                    Favorite.query.filter_by(novel_id=old_novel.id).delete()
+                    Rating.query.filter_by(novel_id=old_novel.id).delete()
+                    ReadingProgress.query.filter_by(novel_id=old_novel.id).delete()
+                    Bookmark.query.filter_by(novel_id=old_novel.id).delete()
+                    db.session.delete(old_novel)
+                    db.session.commit()
+                    existing.novel_id = 0
+                    db.session.commit()
+
             # 覆盖：保持原路径，更新文件内容和元数据
             filepath = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),

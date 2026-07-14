@@ -117,8 +117,13 @@
 
   {% if duplicate %}
   <div class="flash flash-error mb-2">
-    <strong>文件「{{ new_filename }}」已存在</strong>
+    <strong>文件「{{ existing.title }}」已存在</strong>
   </div>
+  {% if existing.novel_id %}
+  <div class="flash flash-error mb-2">
+    <strong>书架书籍已经存在</strong>
+  </div>
+  {% endif %}
   <div class="card mb-2" style="padding: 16px;">
     <h3 style="font-size: 1rem; margin-bottom: 12px;">文件对比</h3>
     <table style="width: 100%; border-collapse: collapse;">
@@ -157,9 +162,17 @@
   </div>
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="filename" value="{{ new_filename }}">
-    <div class="mb-2" style="display: flex; align-items: center; gap: 8px;">
-      <input type="checkbox" name="overwrite" value="1" id="overwriteCheck" style="width: auto; margin: 0;">
-      <label for="overwriteCheck" style="margin: 0; cursor: pointer;">覆盖已有文件（文件将保存到原位置，更新文件大小和上传时间）</label>
+    <div class="mb-2" style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" name="overwrite" value="1" id="overwriteCheck" style="width: auto; margin: 0;">
+        <label for="overwriteCheck" style="margin: 0; cursor: pointer;">覆盖原上传信息</label>
+      </div>
+      {% if existing.novel_id %}
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" name="overwrite_novel" value="1" id="overwriteNovelCheck" style="width: auto; margin: 0;">
+        <label for="overwriteNovelCheck" style="margin: 0; cursor: pointer;">覆盖原书籍和章节</label>
+      </div>
+      {% endif %}
     </div>
     <div class="step1-actions">
       <a href="{{ url_for('novels.uploads') }}" class="btn btn-secondary">取消</a>

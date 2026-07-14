@@ -755,3 +755,117 @@ class TestStep1DuplicateCheck:
             assert upload is not None, '覆盖后原记录仍应存在'
             assert upload.title == '剑来', f'覆盖后标题应为剑来，实际: {upload.title}'
             assert upload.file_size == len(content2.encode('utf-8')), 'file_size 应更新'
+
+    def test_step1_duplicate_shows_existing_novel_warning(self, client, app):
+        """Duplicate page should show '书籍已存在' warning when existing upload has novel_id > 0."""
+        with app.app_context():
+            from app.models import db, User, Novel, Upload
+            user = User(username='admin', password='admin123')
+            novel = Novel(title='剑来', author='烽火戏诸侯')
+            db.session.add(novel)
+            db.session.commit()
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', file_size=1000000, novel_id=novel.id)
+            db.session.add_all([user, upload])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是更多内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert '文件「剑来」已存在' in html
+        assert '书架书籍已经存在' in html
+
+    def test_step1_duplicate_overwrite_checkbox_descriptions(self, client, app):
+        """Overwrite checkbox description includes novel overwrite when existing has novel_id > 0."""
+        with app.app_context():
+            from app.models import db, User, Novel, Upload
+            user = User(username='admin', password='admin123')
+            novel = Novel(title='剑来', author='烽火戏诸侯')
+            db.session.add(novel)
+            db.session.commit()
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', file_size=1000000, novel_id=novel.id)
+            db.session.add_all([user, upload])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是更多内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        html = response.data.decode('utf-8')
+
+        assert '覆盖原上传信息' in html
+        assert '覆盖原书籍和章节' in html
+
+    def test_step1_duplicate_no_novel_simple_checkbox(self, client, app):
+        """Overwrite checkbox only shows '覆盖原上传信息' when novel_id = 0."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', file_size=1000000, novel_id=0)
+            db.session.add_all([user, upload])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是更多内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        html = response.data.decode('utf-8')
+
+        assert '覆盖原上传信息' in html
+        assert '覆盖原书籍和章节' not in html
+
+    def test_step1_overwrite_replaces_existing_novel(self, client, app):
+        """When overwrite is checked and existing has novel_id > 0, delete old novel and chapters."""
+        cat_id = None
+        rule_id = None
+        original_novel_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category, Novel, Upload, Chapter
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            original_novel = Novel(title='剑来', author='烽火戏诸侯')
+            db.session.add(original_novel)
+            db.session.commit()
+            original_novel_id = original_novel.id
+            ch = Chapter(novel_id=original_novel_id, title='第1章', content='内容', order=1)
+            db.session.add(ch)
+            db.session.commit()
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', file_size=1000, novel_id=original_novel_id)
+            db.session.add_all([user, rule, cat, upload])
+            db.session.commit()
+            cat_id = cat.id
+            rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        html = response.data.decode('utf-8')
+        assert '书籍已经存在' in html
+
+        # 勾选覆盖，提交下一步
+        response = client.post('/novels/import', data={
+            'file': (io.BytesIO(content.encode('utf-8')), '剑来.txt'),
+            'overwrite': '1',
+            'overwrite_novel': '1',
+        }, content_type='multipart/form-data', follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Chapter, Novel
+            assert Chapter.query.filter_by(novel_id=original_novel_id).count() == 0, '原有章节应该全部删除'
+            assert Novel.query.get(original_novel_id) is None, '原有小说应该删除'
+
+        with app.app_context():
+            from app.models import Upload
+            upload = Upload.query.filter_by(title='剑来').first()
+            assert upload is not None
+            assert upload.novel_id is not None
+            assert upload.novel_id != original_novel_id, '应该创建新小说替换旧小说'
