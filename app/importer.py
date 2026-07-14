@@ -1,9 +1,10 @@
 import os
 import re
 import chardet
+from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, session
 from werkzeug.utils import secure_filename
-from app.models import db, Novel, Chapter, ChapterRule, Category
+from app.models import db, Novel, Chapter, ChapterRule, Category, Upload
 from app.auth import login_required
 from app.utils import DEFAULT_RULES, get_best_pattern, split_chapters, split_by_fixed_length
 
@@ -21,11 +22,22 @@ def step1():
             return render_template('import/step1.html', error='No file selected')
 
         filename = secure_filename(file.filename)
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
+
+        # 创建日期目录 YYMMDD
+        date_dir = datetime.now().strftime('%y%m%d')
+        date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
+        os.makedirs(date_folder, exist_ok=True)
+
+        filepath = os.path.join(date_folder, filename)
         file.save(filepath)
 
-        raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
+        # 保存相对路径到数据库
+        rel_path = os.path.join('uploads', date_dir, filename)
+        upload = Upload(title=raw_name, file_path=rel_path)
+        db.session.add(upload)
+        db.session.commit()
+
         session['import_original_filename'] = raw_name
 
         raw_data = open(filepath, 'rb').read()

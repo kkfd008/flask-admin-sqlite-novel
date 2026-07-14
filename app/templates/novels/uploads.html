@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}上传列表 · 墨斋{% endblock %}
+
+{% block content %}
+<div class="page-header flex-between">
+  <div>
+    <h1>小说上传列表</h1>
+    <p>管理已上传的小说文件</p>
+  </div>
+  <a href="{{ url_for('importer.step1') }}" class="btn btn-primary">上传新小说</a>
+</div>
+
+{% if pagination.items %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>书名</th>
+        <th>备注</th>
+        <th>上传时间</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for upload in pagination.items %}
+      <tr>
+        <td>{{ upload.title }}</td>
+        <td class="text-muted">{{ upload.notes or '-' }}</td>
+        <td class="text-muted">{{ upload.created_at.strftime('%Y-%m-%d %H:%M') if upload.created_at else '-' }}</td>
+        <td>
+          <a href="{{ url_for('importer.step1') }}?upload_id={{ upload.id }}" class="btn btn-sm btn-secondary">导入书库</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+<div class="flex-between mt-3" style="align-items: center;">
+  <span class="text-muted">
+    共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.pages }} 页
+  </span>
+  <div style="display: flex; gap: 8px;">
+    {% if pagination.has_prev %}
+    <a href="{{ url_for('novels.uploads', page=pagination.prev_num) }}" class="btn btn-sm btn-secondary">上一页</a>
+    {% endif %}
+    {% if pagination.has_next %}
+    <a href="{{ url_for('novels.uploads', page=pagination.next_num) }}" class="btn btn-sm btn-secondary">下一页</a>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">📂</div>
+  <h3>暂无上传记录</h3>
+  <p class="text-muted">点击下方按钮上传您的第一本小说</p>
+  <a href="{{ url_for('importer.step1') }}" class="btn btn-primary mt-2">上传小说</a>
+</div>
+{% endif %}
+{% endblock %}

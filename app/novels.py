@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session
-from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule, Favorite, Rating, Bookmark, ReadingProgress
+from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule, Favorite, Rating, Bookmark, ReadingProgress, Upload
 from app.auth import login_required
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
@@ -147,3 +147,15 @@ def rules_delete(id, rule_id):
     db.session.commit()
     
     return redirect(url_for('novels.rules_list', id=id))
+
+
+@novels_bp.route('/uploads')
+@login_required
+def uploads():
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    pagination = Upload.query.order_by(Upload.created_at.desc())\
+        .paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('novels/uploads.html', pagination=pagination)

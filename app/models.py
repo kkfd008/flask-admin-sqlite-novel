@@ -131,3 +131,13 @@ class Bookmark(db.Model):
     user = db.relationship('User', backref=db.backref('bookmarks', lazy='dynamic'))
     novel = db.relationship('Novel', backref=db.backref('bookmarks', lazy='dynamic'))
     chapter = db.relationship('Chapter')
+
+
+class Upload(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    notes = db.Column(db.String(500))
+    file_path = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    last_import_at = db.Column(db.DateTime)
