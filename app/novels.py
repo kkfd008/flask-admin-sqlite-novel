@@ -78,6 +78,9 @@ def delete(id):
     Bookmark.query.filter_by(novel_id=id).delete()
     ReadingProgress.query.filter_by(novel_id=id).delete()
     
+    # 反查上传表，将 novel_id 重置为 0
+    Upload.query.filter_by(novel_id=id).update({'novel_id': 0})
+    
     db.session.delete(novel)
     db.session.commit()
     
