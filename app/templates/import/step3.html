@@ -173,7 +173,7 @@
     {% for t in chapter_titles %}
     <div class="chapter-card-row">
       <span class="chapter-card-index">{{ loop.index }}</span>
-      <span class="chapter-card-title">{{ t.title }}</span>
+      <span class="chapter-card-title">{{ t }}</span>
       <form method="post" class="chapter-card-delete" style="display:inline;">
         <button type="submit" name="delete_index" value="{{ loop.index0 }}" class="btn btn-danger btn-xs" title="删除此章节">删除</button>
       </form>
@@ -195,7 +195,7 @@
         {% for t in chapter_titles %}
         <tr>
           <td>{{ loop.index }}</td>
-          <td>{{ t.title }}</td>
+          <td>{{ t }}</td>
           <td>
             <form method="post" style="display:inline;">
               <button type="submit" name="delete_index" value="{{ loop.index0 }}" class="btn btn-danger btn-xs" title="删除此章节">删除</button>

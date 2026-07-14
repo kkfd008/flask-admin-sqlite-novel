@@ -208,6 +208,93 @@ class TestImporter:
         assert '第200章' in html
         assert '第三步' in html or '预览' in html or '识别' in html
 
+
+class TestStep3DeleteMerge:
+    def test_delete_chapter_merges_content_to_previous(self, client, app):
+        """When a chapter is deleted in step3, its content merges into the previous chapter."""
+        cat_id = None
+        rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 中间\n这是第二章内容\n第3章 结束\n这是第三章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(rule_id)}, follow_redirects=True)
+
+        # 删除第2章（index 1）
+        response = client.post('/novels/import/step3', data={'delete_index': '1'}, follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        # 第2章标题应被移除
+        assert '第2章' not in html or '中间' not in html
+
+        # 提交确认
+        response = client.post('/novels/import/step4', data={
+            'title': '测试小说',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+
+        with app.app_context():
+            from app.models import Chapter
+            chapters = Chapter.query.order_by(Chapter.order).all()
+            assert len(chapters) == 2, f'删除第2章后应有2章，实际: {len(chapters)}'
+
+            # 第1章内容应包含原第1章 + 第2章的内容
+            assert '这是第一章内容' in chapters[0].content
+            assert '这是第二章内容' in chapters[0].content, f'第1章应包含第2章内容, got: {chapters[0].content[:100]}'
+
+            # 第2章（原第3章）内容应只有原第3章内容
+            assert '这是第三章内容' in chapters[1].content
+
+    def test_delete_first_chapter_removes_it(self, client, app):
+        """Deleting the first chapter just removes it, no merge."""
+        cat_id = None
+        rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(rule_id)}, follow_redirects=True)
+
+        # 删除第1章（index 0）
+        client.post('/novels/import/step3', data={'delete_index': '0'}, follow_redirects=True)
+
+        response = client.post('/novels/import/step4', data={
+            'title': '测试小说',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+
+        with app.app_context():
+            from app.models import Chapter
+            chapters = Chapter.query.order_by(Chapter.order).all()
+            assert len(chapters) == 1, f'删除第1章后应有1章，实际: {len(chapters)}'
+            assert '这是第二章内容' in chapters[0].content
+
     def test_step4_title_defaults_to_filename(self, client, app):
         """小说标题默认携带上传文件名"""
         with app.app_context():

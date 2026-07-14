@@ -204,7 +204,7 @@ def step2():
         if session.get('import_fallback'):
             # 固定长度兜底
             chapters = split_by_fixed_length(content)
-            session['import_chapter_titles'] = [{'title': t, 'index': i} for i, (t, _) in enumerate(chapters)]
+            session['import_chapters'] = [{'title': t, 'content': c} for t, c in chapters]
         else:
             pattern = session.get('import_pattern', '')
             try:
@@ -212,14 +212,8 @@ def step2():
             except re.error:
                 compiled = re.compile(DEFAULT_RULES[0]['pattern'], re.MULTILINE)
 
-            lines = content.split('\n')
-            chapter_titles = []
-            for line in lines:
-                line = line.strip()
-                if line and compiled.match(line):
-                    chapter_titles.append(line)
-
-            session['import_chapter_titles'] = [{'title': t, 'index': i} for i, t in enumerate(chapter_titles)]
+            results = split_chapters(content, compiled)
+            session['import_chapters'] = [{'title': t, 'content': c} for t, c in results]
 
         return redirect(url_for('importer.step3'))
 
@@ -232,28 +226,34 @@ def step2():
 @importer_bp.route('/step3', methods=['GET', 'POST'])
 @login_required
 def step3():
-    if 'import_chapter_titles' not in session:
+    if 'import_chapters' not in session:
         return redirect(url_for('importer.step1'))
 
-    chapter_titles = session.get('import_chapter_titles', [])
+    chapters = session.get('import_chapters', [])
 
     if request.method == 'POST':
         delete_index = request.form.get('delete_index')
         if delete_index is not None:
             idx = int(delete_index)
-            chapter_titles = [t for i, t in enumerate(chapter_titles) if i != idx]
-            session['import_chapter_titles'] = chapter_titles
+            if 0 < idx < len(chapters):
+                # 将被删除章节的内容合并到上一章
+                chapters[idx - 1]['content'] += '\n' + chapters[idx]['content']
+            chapters.pop(idx)
+            session['import_chapters'] = chapters
+            session.modified = True
+            chapter_titles = [c['title'] for c in chapters]
             return render_template('import/step3.html', chapter_titles=chapter_titles)
 
         return redirect(url_for('importer.step4'))
 
+    chapter_titles = [c['title'] for c in chapters]
     return render_template('import/step3.html', chapter_titles=chapter_titles)
 
 
 @importer_bp.route('/step4', methods=['GET', 'POST'])
 @login_required
 def step4():
-    if 'import_chapter_titles' not in session:
+    if 'import_chapters' not in session:
         return redirect(url_for('importer.step1'))
 
     if request.method == 'POST':
@@ -261,36 +261,7 @@ def step4():
         author = request.form.get('author', '')
         category_id = request.form.get('category_id')
 
-        filepath = session['import_filepath']
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        is_fallback = session.get('import_fallback', False)
-        pattern = session.get('import_pattern', '')
-
-        if is_fallback:
-            chapters = split_by_fixed_length(content)
-        elif not pattern:
-            chapters = split_by_fixed_length(content)
-        else:
-            # 重新从 rule_ids 构建：每个模式转为非捕获组再组合，避免内部捕获组扰乱
-            rule_ids = session.get('import_rule_ids', [])
-            if rule_ids:
-                db_patterns = []
-                for rid in rule_ids:
-                    if rid:
-                        rule = ChapterRule.query.get(int(rid))
-                        if rule:
-                            db_patterns.append(rule.pattern)
-                if db_patterns:
-                    pattern = '|'.join(f'(?:{p})' for p in db_patterns)
-
-            try:
-                compiled = re.compile(pattern, re.MULTILINE)
-            except re.error:
-                compiled = re.compile(DEFAULT_RULES[0]['pattern'], re.MULTILINE)
-
-            chapters = split_chapters(content, compiled)
+        chapters = session.get('import_chapters', [])
 
         novel = Novel(title=title, author=author.strip() if author else None)
         if category_id:
@@ -299,14 +270,14 @@ def step4():
         db.session.commit()
 
         chapter_order = 0
-        for ch_title, ch_body in chapters:
+        for ch_data in chapters:
             chapter_order += 1
             ch = Chapter(
                 novel_id=novel.id,
-                title=ch_title,
-                content=ch_body,
+                title=ch_data['title'],
+                content=ch_data['content'],
                 order=chapter_order,
-                word_count=len(ch_body)
+                word_count=len(ch_data['content'])
             )
             db.session.add(ch)
 
