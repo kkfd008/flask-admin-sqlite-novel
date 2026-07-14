@@ -158,6 +158,11 @@
         <td style="padding: 8px;">{{ existing.created_at.strftime('%Y-%m-%d %H:%M') if existing.created_at else '-' }}</td>
         <td style="padding: 8px;">现在</td>
       </tr>
+      <tr>
+        <td style="padding: 8px;">上传路径</td>
+        <td style="padding: 8px; font-size: 0.8rem; color: var(--text-muted); word-break: break-all;">{{ existing.file_path }}</td>
+        <td style="padding: 8px; font-size: 0.8rem; color: var(--text-muted);">-</td>
+      </tr>
     </table>
   </div>
   <form method="post" enctype="multipart/form-data">
