@@ -92,10 +92,46 @@
   width: 100%;
 }
 
+/* --- Scroll Navigation Arrows --- */
+.scroll-nav {
+  position: fixed;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 90;
+}
+.scroll-nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.scroll-nav-btn:active {
+  transform: scale(0.9);
+  background: var(--bg-elevated);
+}
+
 /* ============================================
    Desktop (≥769px)
    ============================================ */
 @media (min-width: 769px) {
+  .scroll-nav {
+    left: calc(50% - 370px);
+  }
   .step3-card {
     max-width: 700px;
     margin: 0 auto;
@@ -183,6 +219,12 @@
     <button type="submit" class="btn btn-primary" onclick="document.getElementById('nextForm').submit();">下一步</button>
   </div>
   <form method="post" id="nextForm" style="display:none;"><button type="submit">next</button></form>
+</div>
+
+<!-- ====== Scroll Navigation Arrows ====== -->
+<div class="scroll-nav">
+  <button class="scroll-nav-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="跳到顶部">↑</button>
+  <button class="scroll-nav-btn" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})" title="跳到底部">↓</button>
 </div>
 
 {% endblock %}
