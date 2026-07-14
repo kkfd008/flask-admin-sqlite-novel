@@ -142,6 +142,40 @@ def step1():
     return render_template('import/step1.html')
 
 
+@importer_bp.route('/reimport/<int:upload_id>')
+@login_required
+def reimport(upload_id):
+    upload = Upload.query.get_or_404(upload_id)
+    filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)), upload.file_path)
+
+    if not os.path.exists(filepath):
+        return redirect(url_for('importer.step1'))
+
+    # 读取文件并创建 utf8 副本
+    raw_data = open(filepath, 'rb').read()
+    detected = chardet.detect(raw_data)
+    encoding = detected.get('encoding', 'utf-8')
+
+    with open(filepath, 'r', encoding=encoding, errors='replace') as f:
+        content = f.read()
+
+    if content and content[0] == '\ufeff':
+        content = content[1:]
+
+    utf8_path = filepath + '.utf8'
+    with open(utf8_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    raw_name = os.path.splitext(os.path.basename(upload.file_path))[0]
+
+    session['import_filepath'] = utf8_path
+    session['import_filename'] = raw_name
+    session['import_original_filename'] = raw_name
+    session['import_upload_id'] = upload.id
+
+    return redirect(url_for('importer.step2'))
+
+
 @importer_bp.route('/step2', methods=['GET', 'POST'])
 @login_required
 def step2():
