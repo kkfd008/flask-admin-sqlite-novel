@@ -42,6 +42,22 @@ class AuthModelView(ModelView):
         return redirect(url_for('auth.login'))
 
 
+class NovelAdmin(AuthModelView):
+    column_list = ('id', 'title', 'author', 'category', 'word_count', 'chapter_count', 'created_at')
+    column_labels = {
+        'id': 'ID',
+        'title': '书名',
+        'author': '作者',
+        'category': '分类',
+        'word_count': '字数',
+        'chapter_count': '章节数',
+        'created_at': '创建时间',
+    }
+    column_searchable_list = ('title', 'author')
+    column_filters = ('category',)
+    page_size = 20
+
+
 def create_app(config=None):
     app = Flask(__name__)
 
@@ -97,7 +113,7 @@ def create_app(config=None):
 
     admin.add_view(AuthModelView(User, db.session))
     admin.add_view(AuthModelView(Category, db.session))
-    admin.add_view(AuthModelView(Novel, db.session))
+    admin.add_view(NovelAdmin(Novel, db.session))
     admin.add_view(AuthModelView(Chapter, db.session))
     admin.add_view(AuthModelView(ChapterRule, db.session))
     admin.add_view(AuthModelView(NovelChapterRule, db.session))
