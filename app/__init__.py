@@ -3,9 +3,33 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin
 from flask_session import Session
 import os
+import sqlite3
 from flask_admin.contrib.sqla import ModelView
 
 db = SQLAlchemy()
+
+
+def _migrate_db(app):
+    """Add missing columns to existing tables."""
+    db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+    if not os.path.isabs(db_path):
+        db_path = os.path.join(app.instance_path, db_path)
+    if not os.path.exists(db_path):
+        return
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Upload: file_size
+    cursor.execute("PRAGMA table_info(upload)")
+    upload_cols = [row[1] for row in cursor.fetchall()]
+    if 'file_size' not in upload_cols:
+        cursor.execute("ALTER TABLE upload ADD COLUMN file_size INTEGER DEFAULT 0")
+    if 'novel_id' not in upload_cols:
+        cursor.execute("ALTER TABLE upload ADD COLUMN novel_id INTEGER DEFAULT 0")
+
+    conn.commit()
+    conn.close()
 
 
 class AuthModelView(ModelView):
@@ -34,6 +58,8 @@ def create_app(config=None):
     Session(app)
 
     db.init_app(app)
+
+    _migrate_db(app)
 
     from app.auth import auth_bp
     from app.categories import categories_bp
