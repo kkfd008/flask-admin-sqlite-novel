@@ -567,6 +567,77 @@
   padding: 8px 20px;
   border-radius: var(--radius-sm);
 }
+
+/* --- Delete Toast --- */
+.delete-toast-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 300;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.delete-toast-overlay.active {
+  display: flex;
+}
+.delete-toast {
+  background: var(--bg-surface);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+  margin-bottom: 16px;
+  animation: toastSlideUp 0.25s ease;
+}
+@keyframes toastSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.delete-toast-icon {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.delete-toast-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.delete-toast-msg {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.delete-toast-actions {
+  display: flex;
+  gap: 10px;
+}
+.delete-toast-actions .btn {
+  flex: 1;
+  font-size: 0.9rem;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  justify-content: center;
+}
+.delete-toast-actions .btn-cancel {
+  background: var(--bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.delete-toast-actions .btn-confirm {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+}
 </style>
 
 <!-- ====== Header ====== -->
@@ -582,8 +653,8 @@
       </button>
     </form>
     <a href="{{ url_for('novels.rules_list', id=novel.id) }}" class="btn btn-secondary">规则</a>
-    <form method="post" action="{{ url_for('novels.delete', id=novel.id) }}" onsubmit="return confirm('确定要删除《{{ novel.title }}》吗？此操作不可恢复。')">
-      <button type="submit" class="btn btn-delete">删除</button>
+    <form method="post" action="{{ url_for('novels.delete', id=novel.id) }}" id="deleteForm">
+      <button type="button" class="btn btn-delete" id="btnDelete">删除</button>
     </form>
   </div>
 </div>
@@ -702,6 +773,19 @@
   {% endif %}
 </div>
 
+<!-- ====== Delete Toast ====== -->
+<div class="delete-toast-overlay" id="deleteToastOverlay">
+  <div class="delete-toast">
+    <div class="delete-toast-icon">⚠️</div>
+    <div class="delete-toast-title">确认删除</div>
+    <div class="delete-toast-msg">确定要删除《{{ novel.title }}》吗？<br>此操作不可恢复。</div>
+    <div class="delete-toast-actions">
+      <button type="button" class="btn btn-cancel" id="btnToastCancel">取消</button>
+      <button type="button" class="btn btn-confirm" id="btnToastConfirm">确认删除</button>
+    </div>
+  </div>
+</div>
+
 <!-- ====== Tag Edit Modal ====== -->
 <div class="tag-modal-overlay" id="tagModalOverlay">
   <div class="tag-modal">
@@ -722,6 +806,7 @@
 </div>
 
 <script>
+// --- Tag Edit Modal ---
 (function() {
   var overlay = document.getElementById('tagModalOverlay');
   var btnEdit = document.getElementById('btnEditTags');
@@ -729,12 +814,10 @@
   var btnConfirm = document.getElementById('btnTagConfirm');
   var currentTags = document.getElementById('currentTags');
 
-  // 打开弹窗
   btnEdit.addEventListener('click', function() {
     overlay.classList.add('active');
   });
 
-  // 关闭弹窗
   function closeModal() {
     overlay.classList.remove('active');
   }
@@ -744,7 +827,6 @@
     if (e.target === overlay) closeModal();
   });
 
-  // 确定：提交标签
   btnConfirm.addEventListener('click', function() {
     var checkboxes = document.querySelectorAll('#tagModalBody input[name="tag_ids"]:checked');
     var tagIds = [];
@@ -765,6 +847,32 @@
 
     document.body.appendChild(form);
     form.submit();
+  });
+})();
+
+// --- Delete Toast ---
+(function() {
+  var overlay = document.getElementById('deleteToastOverlay');
+  var btnDelete = document.getElementById('btnDelete');
+  var btnCancel = document.getElementById('btnToastCancel');
+  var btnConfirm = document.getElementById('btnToastConfirm');
+  var deleteForm = document.getElementById('deleteForm');
+
+  btnDelete.addEventListener('click', function() {
+    overlay.classList.add('active');
+  });
+
+  function closeToast() {
+    overlay.classList.remove('active');
+  }
+
+  btnCancel.addEventListener('click', closeToast);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeToast();
+  });
+
+  btnConfirm.addEventListener('click', function() {
+    deleteForm.submit();
   });
 })();
 </script>
