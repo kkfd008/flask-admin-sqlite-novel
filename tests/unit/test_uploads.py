@@ -402,3 +402,159 @@ class TestUploadsListConditionalButtons:
         assert '阅读' in html
         assert '导入书库' in html
         assert f'/novels/{novel_id}' in html
+
+
+class TestUploadFileSize:
+    def test_upload_file_size_defaults_to_zero(self, app):
+        """file_size should default to 0."""
+        with app.app_context():
+            from app.models import db, Upload
+
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt')
+            db.session.add(upload)
+            db.session.commit()
+
+            assert upload.file_size == 0
+
+    def test_upload_file_size_can_be_set(self, app):
+        """file_size should be settable."""
+        with app.app_context():
+            from app.models import db, Upload
+
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', file_size=102400)
+            db.session.add(upload)
+            db.session.commit()
+
+            assert upload.file_size == 102400
+
+    def test_step1_saves_file_size(self, client, app):
+        """step1 should save file_size in Upload record."""
+        with app.app_context():
+            from app.models import db, User
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), 'test.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Upload
+            upload = Upload.query.order_by(Upload.created_at.desc()).first()
+            assert upload is not None
+            assert upload.file_size > 0, f'file_size should be > 0, got {upload.file_size}'
+
+    def test_uploads_list_shows_file_size(self, client, app):
+        """Uploads list should display file_size."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', file_size=2048000)
+            db.session.add_all([user, upload])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/uploads', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        # 2MB = 2048000 bytes, should show formatted size
+        assert 'MB' in html or 'KB' in html or '2048000' in html or '2.0' in html or '1.95' in html
+
+
+class TestStep1DuplicateCheck:
+    def test_step1_first_upload_goes_to_step2(self, client, app):
+        """First upload of a filename should go directly to step2."""
+        with app.app_context():
+            from app.models import db, User
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '新小说.txt')}
+        response = client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        # 应该跳转到 step2
+        assert '第二步' in html or 'step2' in html.lower() or '规则' in html
+
+    def test_step1_duplicate_shows_compare_page(self, client, app):
+        """Uploading same filename twice should show comparison page with overwrite option."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 第一次上传
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        # 第二次上传同名文件，不同大小
+        content2 = '第1章 开始\n这是第一章内容\n更多内容'
+        data2 = {'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data2, content_type='multipart/form-data', follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        # 应显示重复提示
+        assert '重复' in html or '覆盖' in html or '已存在' in html
+        # 应显示覆盖复选框
+        assert 'checkbox' in html.lower() or '覆盖' in html
+        # 应显示下一步按钮
+        assert '下一步' in html
+
+    def test_step1_duplicate_overwrite_goes_to_step2(self, client, app):
+        """Checking overwrite and clicking next should go to step2."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 第一次上传
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        # 第二次上传同名文件，勾选覆盖
+        content2 = '第1章 开始\n这是第一章内容\n更多内容'
+        data2 = {'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data={
+            'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt'),
+            'overwrite': '1',
+        }, content_type='multipart/form-data', follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert '第二步' in html or '规则' in html, f'应跳转到step2, got: {html[:300]}'
+
+    def test_step1_upload_page_shows_upload_button(self, client, app):
+        """step1 GET page should show '上传' button, not '上传并继续'."""
+        with app.app_context():
+            from app.models import db, User
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/import', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '上传' in html
+        assert '上传并继续' not in html

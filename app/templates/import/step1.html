@@ -115,6 +115,54 @@
   <div class="flash flash-error mb-2">{{ error }}</div>
   {% endif %}
 
+  {% if duplicate %}
+  <div class="flash flash-error mb-2">
+    <strong>文件「{{ new_filename }}」已存在</strong>
+  </div>
+  <div class="card mb-2" style="padding: 16px;">
+    <h3 style="font-size: 1rem; margin-bottom: 12px;">文件对比</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">项目</th>
+        <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">已有文件</th>
+        <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">新文件</th>
+      </tr>
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid var(--border-light);">大小</td>
+        <td style="padding: 8px; border-bottom: 1px solid var(--border-light);">
+          {% if existing.file_size >= 1048576 %}
+          {{ '%.2f'|format(existing.file_size / 1048576) }} MB
+          {% elif existing.file_size >= 1024 %}
+          {{ '%.2f'|format(existing.file_size / 1024) }} KB
+          {% else %}
+          {{ existing.file_size }} B
+          {% endif %}
+        </td>
+        <td style="padding: 8px; border-bottom: 1px solid var(--border-light);">
+          {% if new_size >= 1048576 %}
+          {{ '%.2f'|format(new_size / 1048576) }} MB
+          {% elif new_size >= 1024 %}
+          {{ '%.2f'|format(new_size / 1024) }} KB
+          {% else %}
+          {{ new_size }} B
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;">上传时间</td>
+        <td style="padding: 8px;">{{ existing.created_at.strftime('%Y-%m-%d %H:%M') if existing.created_at else '-' }}</td>
+        <td style="padding: 8px;">现在</td>
+      </tr>
+    </table>
+  </div>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="overwrite" value="1">
+    <input type="hidden" name="filename" value="{{ new_filename }}">
+    <div class="step1-actions">
+      <button type="submit" class="btn btn-primary">下一步</button>
+    </div>
+  </form>
+  {% else %}
   <form method="post" enctype="multipart/form-data">
     <div class="drop-zone" id="dropZone">
       <div class="drop-zone-icon text-muted">📄</div>
@@ -123,9 +171,10 @@
       <input class="form-input step1-file-input" type="file" name="file" id="fileInput" accept=".txt" required>
     </div>
     <div class="step1-actions">
-      <button type="submit" class="btn btn-primary">上传并继续</button>
+      <button type="submit" class="btn btn-primary">上传</button>
     </div>
   </form>
+  {% endif %}
 </div>
 
 <script>

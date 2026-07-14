@@ -24,6 +24,22 @@ def step1():
         filename = secure_filename(file.filename)
         raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
 
+        # 读取文件内容获取大小
+        file_content = file.read()
+        file_size = len(file_content)
+        file.seek(0)
+
+        # 检查重复文件名
+        existing = Upload.query.filter_by(title=raw_name).first()
+        if existing and not request.form.get('overwrite'):
+            # 显示重复比较页面
+            return render_template('import/step1.html',
+                                   duplicate=True,
+                                   existing=existing,
+                                   new_filename=filename,
+                                   new_size=file_size,
+                                   error=None)
+
         # 创建日期目录 YYMMDD
         date_dir = datetime.now().strftime('%y%m%d')
         date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
@@ -34,9 +50,17 @@ def step1():
 
         # 保存相对路径到数据库
         rel_path = os.path.join('uploads', date_dir, filename)
-        upload = Upload(title=raw_name, file_path=rel_path)
-        db.session.add(upload)
-        db.session.commit()
+
+        if existing and request.form.get('overwrite'):
+            # 覆盖：更新现有记录
+            existing.file_path = rel_path
+            existing.file_size = file_size
+            existing.updated_at = datetime.now()
+            db.session.commit()
+        else:
+            upload = Upload(title=raw_name, file_path=rel_path, file_size=file_size)
+            db.session.add(upload)
+            db.session.commit()
 
         session['import_original_filename'] = raw_name
 

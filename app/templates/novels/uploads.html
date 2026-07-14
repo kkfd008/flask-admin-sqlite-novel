@@ -17,6 +17,7 @@
       <tr>
         <th>书名</th>
         <th>备注</th>
+        <th>大小</th>
         <th>上传时间</th>
         <th>操作</th>
       </tr>
@@ -26,6 +27,15 @@
       <tr>
         <td>{{ upload.title }}</td>
         <td class="text-muted">{{ upload.notes or '-' }}</td>
+        <td class="text-muted">
+          {% if upload.file_size >= 1048576 %}
+          {{ '%.2f'|format(upload.file_size / 1048576) }} MB
+          {% elif upload.file_size >= 1024 %}
+          {{ '%.2f'|format(upload.file_size / 1024) }} KB
+          {% else %}
+          {{ upload.file_size }} B
+          {% endif %}
+        </td>
         <td class="text-muted">{{ upload.created_at.strftime('%Y-%m-%d %H:%M') if upload.created_at else '-' }}</td>
         <td>
           {% if upload.novel_id %}
