@@ -48,7 +48,7 @@ def step1():
             existing = Upload.query.filter_by(title=raw_name).first()
             if existing and not overwrite:
                 # 保存临时文件用于覆盖提交
-                temp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tmp')
+                temp_dir = os.path.join(UPLOAD_FOLDER, '.temp')
                 os.makedirs(temp_dir, exist_ok=True)
                 temp_path = os.path.join(temp_dir, saved_filename)
                 file.save(temp_path)
