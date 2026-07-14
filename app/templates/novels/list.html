@@ -26,22 +26,11 @@
 
   <div class="chip-section">
     <span class="chip-section-label">标签</span>
-    <button type="button" class="chip tag-trigger" onclick="openTagModal()">选择标签 ▾</button>
-  </div>
-
-  <!-- Tag Modal -->
-  <div class="tag-modal-overlay" id="tagFilterModal">
-    <div class="tag-modal">
-      <div class="tag-modal-header">标签管理</div>
-      <div class="tag-modal-body">
-        <button type="button" class="chip {% if not request.args.get('tag_id') %}active{% endif %}" onclick="setFilter('tag_id', '')">全部</button>
-        {% for tag in tags %}
-        <button type="button" class="chip {% if request.args.get('tag_id')|string == tag.id|string %}active{% endif %}" onclick="setFilter('tag_id', '{{ tag.id }}')">{{ tag.name }}</button>
-        {% endfor %}
-      </div>
-      <div class="tag-modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeTagModal()">取消</button>
-      </div>
+    <div class="chip-scroll">
+      <button type="button" class="chip {% if not request.args.get('tag_id') %}active{% endif %}" onclick="setFilter('tag_id', '')">全部</button>
+      {% for tag in tags %}
+      <button type="button" class="chip {% if request.args.get('tag_id')|string == tag.id|string %}active{% endif %}" onclick="setFilter('tag_id', '{{ tag.id }}')">{{ tag.name }}</button>
+      {% endfor %}
     </div>
   </div>
 
@@ -413,68 +402,6 @@
 
   .novel-card-title {
     font-size: 1.1rem;
-  }
-
-  /* Tag Filter Modal */
-  .tag-trigger {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
-  }
-
-  .tag-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 200;
-    align-items: flex-end;
-    justify-content: center;
-  }
-
-  .tag-modal-overlay.active {
-    display: flex;
-  }
-
-  .tag-modal {
-    background: var(--bg-surface);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    box-shadow: var(--shadow-lg);
-    width: 100%;
-    max-width: 430px;
-    display: flex;
-    flex-direction: column;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .tag-modal-header {
-    padding: 16px 20px 12px;
-    font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-align: center;
-  }
-
-  .tag-modal-body {
-    padding: 0 20px 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    max-height: 50vh;
-    overflow-y: auto;
-  }
-
-  .tag-modal-footer {
-    padding: 0 20px 16px;
-    display: flex;
-    justify-content: center;
-  }
-
-  .tag-modal-footer .btn {
-    width: 100%;
-    font-size: 0.9rem;
-    padding: 12px;
   }
 }
 
