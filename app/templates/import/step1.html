@@ -164,12 +164,12 @@
     <input type="hidden" name="filename" value="{{ new_filename }}">
     <div class="mb-2" style="display: flex; flex-direction: column; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 8px;">
-        <input type="checkbox" name="overwrite" value="1" id="overwriteCheck" style="width: auto; margin: 0;">
+        <input type="checkbox" name="overwrite" value="1" id="overwriteCheck" style="width: auto; margin: 0;" checked>
         <label for="overwriteCheck" style="margin: 0; cursor: pointer;">覆盖原上传信息</label>
       </div>
       {% if existing.novel_id %}
       <div style="display: flex; align-items: center; gap: 8px;">
-        <input type="checkbox" name="overwrite_novel" value="1" id="overwriteNovelCheck" style="width: auto; margin: 0;">
+        <input type="checkbox" name="overwrite_novel" value="1" id="overwriteNovelCheck" style="width: auto; margin: 0;" checked>
         <label for="overwriteNovelCheck" style="margin: 0; cursor: pointer;">覆盖原书籍和章节</label>
       </div>
       {% endif %}
