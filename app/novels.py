@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, redirect, url_for, request, session
+from flask import Blueprint, render_template, redirect, url_for, request, session, send_file
 from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule, Favorite, Rating, Bookmark, ReadingProgress, Upload
 from app.auth import login_required
+import os
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
 
@@ -162,3 +163,13 @@ def uploads():
         .paginate(page=page, per_page=per_page, error_out=False)
 
     return render_template('novels/uploads.html', pagination=pagination)
+
+
+@novels_bp.route('/uploads/<int:upload_id>/download')
+@login_required
+def download_upload(upload_id):
+    upload = Upload.query.get_or_404(upload_id)
+    filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)), upload.file_path)
+    if not os.path.exists(filepath):
+        return '文件不存在', 404
+    return send_file(filepath, as_attachment=True, download_name=upload.title + os.path.splitext(upload.file_path)[1])

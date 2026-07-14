@@ -43,6 +43,7 @@
           {% else %}
           <a href="{{ url_for('importer.step1') }}?upload_id={{ upload.id }}" class="btn btn-sm btn-secondary">导入书库</a>
           {% endif %}
+          <a href="{{ url_for('novels.download_upload', upload_id=upload.id) }}" class="btn btn-sm btn-secondary">下载</a>
         </td>
       </tr>
       {% endfor %}
