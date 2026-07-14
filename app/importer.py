@@ -4,7 +4,6 @@ import shutil
 import chardet
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, session
-from werkzeug.utils import secure_filename
 from app.models import db, Novel, Chapter, ChapterRule, Category, Upload, NovelChapterRule, Favorite, Rating, ReadingProgress, Bookmark
 from app.auth import login_required
 from app.utils import DEFAULT_RULES, get_best_pattern, split_chapters, split_by_fixed_length
@@ -38,8 +37,9 @@ def step1():
             if not file:
                 return render_template('import/step1.html', error='No file selected')
 
-            filename = secure_filename(file.filename)
             raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
+            original_ext = os.path.splitext(file.filename)[1] if file.filename else '.txt'
+            saved_filename = raw_name + original_ext
 
             file_content = file.read()
             file_size = len(file_content)
@@ -48,18 +48,18 @@ def step1():
             existing = Upload.query.filter_by(title=raw_name).first()
             if existing and not overwrite:
                 # 保存临时文件用于覆盖提交
-                temp_dir = os.path.join(UPLOAD_FOLDER, '.temp')
+                temp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tmp')
                 os.makedirs(temp_dir, exist_ok=True)
-                temp_path = os.path.join(temp_dir, filename)
+                temp_path = os.path.join(temp_dir, saved_filename)
                 file.save(temp_path)
                 session['import_temp_file'] = temp_path
                 session['import_temp_raw_name'] = raw_name
-                session['import_temp_filename'] = filename
+                session['import_temp_filename'] = saved_filename
 
                 return render_template('import/step1.html',
                                        duplicate=True,
                                        existing=existing,
-                                       new_filename=filename,
+                                       new_filename=saved_filename,
                                        new_size=file_size,
                                        error=None)
 
@@ -99,13 +99,13 @@ def step1():
             date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
             os.makedirs(date_folder, exist_ok=True)
 
-            filepath = os.path.join(date_folder, filename)
+            filepath = os.path.join(date_folder, saved_filename)
             if temp_path:
                 shutil.copy(temp_path, filepath)
             else:
                 file.save(filepath)
 
-            rel_path = os.path.join('uploads', date_dir, filename)
+            rel_path = os.path.join('uploads', date_dir, saved_filename)
             upload = Upload(title=raw_name, file_path=rel_path, file_size=file_size)
             db.session.add(upload)
             db.session.commit()
@@ -128,7 +128,7 @@ def step1():
             f.write(content)
 
         session['import_filepath'] = utf8_path
-        session['import_filename'] = os.path.splitext(filename)[0]
+        session['import_filename'] = raw_name
 
         # 清理临时文件
         if temp_path and os.path.exists(temp_path):
