@@ -52,8 +52,13 @@ def step1():
         rel_path = os.path.join('uploads', date_dir, filename)
 
         if existing and request.form.get('overwrite'):
-            # 覆盖：更新现有记录
-            existing.file_path = rel_path
+            # 覆盖：保持原路径，更新文件内容和元数据
+            filepath = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                existing.file_path
+            )
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            file.save(filepath)
             existing.file_size = file_size
             existing.updated_at = datetime.now()
             db.session.commit()

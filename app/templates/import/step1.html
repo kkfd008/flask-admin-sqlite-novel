@@ -156,9 +156,13 @@
     </table>
   </div>
   <form method="post" enctype="multipart/form-data">
-    <input type="hidden" name="overwrite" value="1">
     <input type="hidden" name="filename" value="{{ new_filename }}">
+    <div class="mb-2" style="display: flex; align-items: center; gap: 8px;">
+      <input type="checkbox" name="overwrite" value="1" id="overwriteCheck" style="width: auto; margin: 0;">
+      <label for="overwriteCheck" style="margin: 0; cursor: pointer;">覆盖已有文件（文件将保存到原位置，更新文件大小和上传时间）</label>
+    </div>
     <div class="step1-actions">
+      <a href="{{ url_for('novels.uploads') }}" class="btn btn-secondary">取消</a>
       <button type="submit" class="btn btn-primary">下一步</button>
     </div>
   </form>

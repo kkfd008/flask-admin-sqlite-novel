@@ -558,3 +558,84 @@ class TestStep1DuplicateCheck:
 
         assert '上传' in html
         assert '上传并继续' not in html
+
+    def test_step1_duplicate_shows_visible_checkbox(self, client, app):
+        """Duplicate page should show a visible checkbox (not hidden) for overwrite."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        content2 = '第1章 开始\n更多内容'
+        data2 = {'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data2, content_type='multipart/form-data', follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        # 必须有可见的 checkbox（非 hidden）
+        assert 'type="checkbox"' in html, '重复页必须有可见的覆盖勾选框'
+        assert 'name="overwrite"' in html, 'checkbox name 应为 overwrite'
+
+    def test_step1_duplicate_shows_cancel_button(self, client, app):
+        """Duplicate page should show cancel button linking to uploads list."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        content2 = '第1章 开始\n更多内容'
+        data2 = {'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data2, content_type='multipart/form-data', follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '取消' in html, '重复页应有取消按钮'
+        assert '/novels/uploads' in html, '取消按钮应链接到上传列表'
+
+    def test_step1_overwrite_keeps_file_path(self, client, app):
+        """Overwriting should keep the original file_path unchanged."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        with app.app_context():
+            first_upload = Upload.query.order_by(Upload.created_at.desc()).first()
+            original_path = first_upload.file_path
+            original_size = first_upload.file_size
+
+        # 第二次上传同名文件，勾选覆盖
+        content2 = '第1章 开始\n这是第一章内容\n更多内容'
+        client.post('/novels/import', data={
+            'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt'),
+            'overwrite': '1',
+        }, content_type='multipart/form-data', follow_redirects=True)
+
+        with app.app_context():
+            upload = Upload.query.order_by(Upload.updated_at.desc()).first()
+            assert upload.file_path == original_path, f'覆盖后 file_path 应保持不变: {upload.file_path} != {original_path}'
+            assert upload.file_size == len(content2.encode('utf-8')), f'file_size 应更新为新文件大小'
+            assert upload.file_size > original_size, '新文件更大，file_size 应增大'
