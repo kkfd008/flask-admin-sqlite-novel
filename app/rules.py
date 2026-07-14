@@ -10,7 +10,8 @@ rules_bp = Blueprint('rules', __name__, url_prefix='/rules')
 def list():
     system_rules = ChapterRule.query.filter_by(category='系统').order_by(ChapterRule.sort_order).all()
     user_rules = ChapterRule.query.filter_by(category='用户').order_by(ChapterRule.sort_order).all()
-    return render_template('rules/list.html', system_rules=system_rules, user_rules=user_rules)
+    legado_rules = ChapterRule.query.filter_by(category='增强').order_by(ChapterRule.sort_order).all()
+    return render_template('rules/list.html', system_rules=system_rules, user_rules=user_rules, legado_rules=legado_rules)
 
 
 @rules_bp.route('/create', methods=['POST'])
@@ -34,7 +35,7 @@ def create():
 def edit(id):
     rule = ChapterRule.query.get_or_404(id)
 
-    if rule.category == '系统':
+    if rule.category in ('系统', '增强'):
         flash('系统规则不可修改', 'error')
         return redirect(url_for('rules.list'))
 
@@ -61,7 +62,7 @@ def toggle(id):
 def delete(id):
     rule = ChapterRule.query.get_or_404(id)
 
-    if rule.category == '系统':
+    if rule.category in ('系统', '增强'):
         flash('系统规则不可删除', 'error')
         return redirect(url_for('rules.list'))
 
