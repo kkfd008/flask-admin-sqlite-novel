@@ -7,7 +7,7 @@ import pytest
 
 class TestUploadModel:
     def test_upload_creation(self, app):
-        """Upload model should have title, notes, file_path, created_at, updated_at, last_import_at."""
+        """Upload model should have title, notes, file_path, created_at, updated_at, last_import_at, novel_id."""
         with app.app_context():
             from app.models import db, Upload
 
@@ -26,6 +26,7 @@ class TestUploadModel:
             assert upload.created_at is not None
             assert upload.updated_at is not None
             assert upload.last_import_at is None
+            assert upload.novel_id == 0
 
     def test_upload_last_import_at_update(self, app):
         """last_import_at should be updatable after import."""
@@ -227,3 +228,177 @@ class TestImportStep1Save:
             assert upload is not None
             assert 'uploads' in upload.file_path, f'file_path should be relative path under uploads, got: {upload.file_path}'
             assert 'test.txt' in upload.file_path, f'file_path should contain filename, got: {upload.file_path}'
+
+
+class TestUploadNovelId:
+    def test_upload_novel_id_defaults_to_zero(self, app):
+        """novel_id should default to 0."""
+        with app.app_context():
+            from app.models import db, Upload
+
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt')
+            db.session.add(upload)
+            db.session.commit()
+
+            assert upload.novel_id == 0
+
+    def test_upload_novel_id_can_be_set(self, app):
+        """novel_id should be settable to a novel's ID."""
+        with app.app_context():
+            from app.models import db, Upload, Novel
+
+            novel = Novel(title='剑来')
+            db.session.add(novel)
+            db.session.commit()
+
+            upload = Upload(
+                title='剑来',
+                file_path='uploads/260714/剑来.txt',
+                novel_id=novel.id
+            )
+            db.session.add(upload)
+            db.session.commit()
+
+            assert upload.novel_id == novel.id
+
+
+class TestStep4UpdatesUploadNovelId:
+    def test_step4_complete_updates_upload_novel_id(self, client, app):
+        """After step4 import completes, the most recent Upload record should have novel_id set."""
+        cat_id = None
+        rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '测试小说.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(rule_id)}, follow_redirects=True)
+
+        response = client.post('/novels/import/step4', data={
+            'title': '测试小说',
+            'author': '测试作者',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+
+        with app.app_context():
+            from app.models import Upload, Novel
+            upload = Upload.query.order_by(Upload.created_at.desc()).first()
+            assert upload is not None
+            assert upload.novel_id > 0, f'step4 should set novel_id on upload, got {upload.novel_id}'
+
+            novel = Novel.query.get(upload.novel_id)
+            assert novel is not None
+            assert novel.title == '测试小说'
+
+    def test_step4_no_upload_record_still_works(self, client, app):
+        """step4 should still work even if no Upload record exists (backward compat)."""
+        cat_id = None
+        rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            cat_id = cat.id
+            rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '直接导入.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(rule_id)}, follow_redirects=True)
+
+        response = client.post('/novels/import/step4', data={
+            'title': '直接导入小说',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert '直接导入小说' in html
+
+
+class TestUploadsListConditionalButtons:
+    def test_upload_with_novel_id_shows_read_button(self, client, app):
+        """Upload with novel_id > 0 should show '阅读' button, not '导入书库'."""
+        novel_id = None
+        with app.app_context():
+            from app.models import db, User, Upload, Novel
+            user = User(username='admin', password='admin123')
+            novel = Novel(title='剑来')
+            db.session.add_all([user, novel])
+            db.session.commit()
+            novel_id = novel.id
+
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', novel_id=novel_id)
+            db.session.add(upload)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/uploads', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '阅读' in html, '已导入的上传应显示阅读按钮'
+        assert '导入书库' not in html, '已导入的上传不应显示导入书库按钮'
+        assert f'/novels/{novel_id}' in html, '阅读按钮应链接到小说详情页'
+
+    def test_upload_without_novel_id_shows_import_button(self, client, app):
+        """Upload with novel_id == 0 should show '导入书库' button, not '阅读'."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            upload = Upload(title='剑来', file_path='uploads/260714/剑来.txt', novel_id=0)
+            db.session.add_all([user, upload])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/uploads', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '导入书库' in html, '未导入的上传应显示导入书库按钮'
+        assert '阅读' not in html, '未导入的上传不应显示阅读按钮'
+
+    def test_mixed_uploads_shows_correct_buttons(self, client, app):
+        """Mixed uploads: some imported show '阅读', some not show '导入书库'."""
+        novel_id = None
+        with app.app_context():
+            from app.models import db, User, Upload, Novel
+            user = User(username='admin', password='admin123')
+            novel = Novel(title='剑来')
+            db.session.add_all([user, novel])
+            db.session.commit()
+            novel_id = novel.id
+
+            upload1 = Upload(title='剑来', file_path='uploads/260714/剑来.txt', novel_id=novel_id)
+            upload2 = Upload(title='雪中悍刀行', file_path='uploads/260714/雪中悍刀行.txt', novel_id=0)
+            db.session.add_all([upload1, upload2])
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/uploads', follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '阅读' in html
+        assert '导入书库' in html
+        assert f'/novels/{novel_id}' in html

@@ -28,7 +28,11 @@
         <td class="text-muted">{{ upload.notes or '-' }}</td>
         <td class="text-muted">{{ upload.created_at.strftime('%Y-%m-%d %H:%M') if upload.created_at else '-' }}</td>
         <td>
+          {% if upload.novel_id %}
+          <a href="{{ url_for('novels.detail', id=upload.novel_id) }}" class="btn btn-sm btn-primary">阅读</a>
+          {% else %}
           <a href="{{ url_for('importer.step1') }}?upload_id={{ upload.id }}" class="btn btn-sm btn-secondary">导入书库</a>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

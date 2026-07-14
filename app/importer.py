@@ -235,6 +235,13 @@ def step4():
         novel.word_count = sum(len(c.content) for c in novel.chapters)
         db.session.commit()
 
+        # 更新最近上传记录的 novel_id
+        latest_upload = Upload.query.order_by(Upload.created_at.desc()).first()
+        if latest_upload:
+            latest_upload.novel_id = novel.id
+            latest_upload.last_import_at = datetime.now()
+            db.session.commit()
+
         session.pop('import_filepath', None)
         session.pop('import_filename', None)
         session.pop('import_original_filename', None)

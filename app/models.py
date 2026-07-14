@@ -138,6 +138,7 @@ class Upload(db.Model):
     title = db.Column(db.String(255), nullable=False)
     notes = db.Column(db.String(500))
     file_path = db.Column(db.String(500), nullable=False)
+    novel_id = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     last_import_at = db.Column(db.DateTime)
