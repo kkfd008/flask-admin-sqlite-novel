@@ -672,3 +672,43 @@ class TestStep1DuplicateCheck:
             assert upload.file_path == original_path, f'覆盖后 file_path 应保持不变: {upload.file_path} != {original_path}'
             assert upload.file_size == len(content2.encode('utf-8')), f'file_size 应更新为新文件大小'
             assert upload.file_size > original_size, '新文件更大，file_size 应增大'
+
+    def test_step1_overwrite_preserves_chinese_title(self, client, app):
+        """Overwrite should preserve the original Chinese title, not become 'txt'."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 第一次上传中文书名
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        with app.app_context():
+            upload = Upload.query.order_by(Upload.created_at.desc()).first()
+            upload_id = upload.id
+            assert upload.title == '剑来', f'原标题应为剑来，实际: {upload.title}'
+
+        # 第二次上传同名文件，触发重复页
+        content2 = '第1章 开始\n这是第一章内容\n更多内容'
+        data2 = {'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data2, content_type='multipart/form-data', follow_redirects=True)
+        assert '覆盖' in response.data.decode('utf-8'), '应显示重复页'
+
+        # 模拟覆盖表单提交（无 file）
+        response = client.post('/novels/import', data={
+            'overwrite': '1',
+            'filename': '剑来.txt',
+        }, content_type='application/x-www-form-urlencoded')
+
+        assert response.status_code == 302, '应重定向到 step2'
+
+        with app.app_context():
+            upload = Upload.query.get(upload_id)
+            assert upload is not None, '覆盖后原记录仍应存在'
+            assert upload.title == '剑来', f'覆盖后标题应为剑来，实际: {upload.title}'
+            assert upload.file_size == len(content2.encode('utf-8')), 'file_size 应更新'

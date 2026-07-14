@@ -28,9 +28,10 @@ def step1():
             temp_path = session.get('import_temp_file')
             if not temp_path or not os.path.exists(temp_path):
                 return render_template('import/step1.html', error='临时文件已过期，请重新上传')
-            form_filename = request.form.get('filename', '')
-            filename = secure_filename(form_filename) if form_filename else 'unknown.txt'
-            raw_name = os.path.splitext(filename)[0]
+            raw_name = session.get('import_temp_raw_name', '')
+            filename = session.get('import_temp_filename', '')
+            if not raw_name or not filename:
+                return render_template('import/step1.html', error='会话已过期，请重新上传')
             file_size = os.path.getsize(temp_path)
             existing = Upload.query.filter_by(title=raw_name).first()
         else:
@@ -52,6 +53,8 @@ def step1():
                 temp_path = os.path.join(temp_dir, filename)
                 file.save(temp_path)
                 session['import_temp_file'] = temp_path
+                session['import_temp_raw_name'] = raw_name
+                session['import_temp_filename'] = filename
 
                 return render_template('import/step1.html',
                                        duplicate=True,
@@ -114,6 +117,8 @@ def step1():
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
         session.pop('import_temp_file', None)
+        session.pop('import_temp_raw_name', None)
+        session.pop('import_temp_filename', None)
 
         return redirect(url_for('importer.step2'))
 
