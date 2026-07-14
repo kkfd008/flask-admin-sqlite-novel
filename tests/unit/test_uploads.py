@@ -542,6 +542,39 @@ class TestStep1DuplicateCheck:
         html = response.data.decode('utf-8')
         assert '第二步' in html or '规则' in html, f'应跳转到step2, got: {html[:300]}'
 
+    def test_step1_duplicate_overwrite_form_no_file(self, client, app):
+        """The duplicate form has no file input; submit with only overwrite still goes to step2."""
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 第一次上传
+        content1 = '第1章 开始\n这是第一章内容'
+        data1 = {'file': (io.BytesIO(content1.encode('utf-8')), '剑来.txt')}
+        client.post('/novels/import', data=data1, content_type='multipart/form-data', follow_redirects=True)
+
+        # 第二次上传同名文件，会被拦截显示重复页
+        content2 = '第1章 开始\n这是第一章内容\n更多内容'
+        data2 = {'file': (io.BytesIO(content2.encode('utf-8')), '剑来.txt')}
+        response = client.post('/novels/import', data=data2, content_type='multipart/form-data', follow_redirects=True)
+        html = response.data.decode('utf-8')
+        assert '覆盖' in html, '应显示重复页'
+
+        # 模拟重复表单提交：只有 overwrite 和 filename，没有 file
+        response = client.post('/novels/import', data={
+            'overwrite': '1',
+            'filename': '剑来.txt',
+        }, content_type='application/x-www-form-urlencoded')
+
+        # 应重定向到 step2
+        assert response.status_code == 302, f'应重定向到step2，实际状态码: {response.status_code}'
+        assert '/novels/import/step2' in response.headers.get('Location', ''), \
+            f'应重定向到step2, Location: {response.headers.get("Location", "")}'
+
     def test_step1_upload_page_shows_upload_button(self, client, app):
         """step1 GET page should show '上传' button, not '上传并继续'."""
         with app.app_context():

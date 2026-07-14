@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import chardet
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, session
@@ -18,51 +19,74 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'upload
 def step1():
     if request.method == 'POST':
         file = request.files.get('file')
-        if not file:
-            return render_template('import/step1.html', error='No file selected')
+        overwrite = request.form.get('overwrite')
+        temp_path = None
+        existing = None
 
-        filename = secure_filename(file.filename)
-        raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
+        # 覆盖提交：从临时文件恢复
+        if overwrite and not file:
+            temp_path = session.get('import_temp_file')
+            if not temp_path or not os.path.exists(temp_path):
+                return render_template('import/step1.html', error='临时文件已过期，请重新上传')
+            form_filename = request.form.get('filename', '')
+            filename = secure_filename(form_filename) if form_filename else 'unknown.txt'
+            raw_name = os.path.splitext(filename)[0]
+            file_size = os.path.getsize(temp_path)
+            existing = Upload.query.filter_by(title=raw_name).first()
+        else:
+            if not file:
+                return render_template('import/step1.html', error='No file selected')
 
-        # 读取文件内容获取大小
-        file_content = file.read()
-        file_size = len(file_content)
-        file.seek(0)
+            filename = secure_filename(file.filename)
+            raw_name = os.path.splitext(file.filename)[0] if file.filename else ''
 
-        # 检查重复文件名
-        existing = Upload.query.filter_by(title=raw_name).first()
-        if existing and not request.form.get('overwrite'):
-            # 显示重复比较页面
-            return render_template('import/step1.html',
-                                   duplicate=True,
-                                   existing=existing,
-                                   new_filename=filename,
-                                   new_size=file_size,
-                                   error=None)
+            file_content = file.read()
+            file_size = len(file_content)
+            file.seek(0)
 
-        # 创建日期目录 YYMMDD
-        date_dir = datetime.now().strftime('%y%m%d')
-        date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
-        os.makedirs(date_folder, exist_ok=True)
+            existing = Upload.query.filter_by(title=raw_name).first()
+            if existing and not overwrite:
+                # 保存临时文件用于覆盖提交
+                temp_dir = os.path.join(UPLOAD_FOLDER, '.temp')
+                os.makedirs(temp_dir, exist_ok=True)
+                temp_path = os.path.join(temp_dir, filename)
+                file.save(temp_path)
+                session['import_temp_file'] = temp_path
 
-        filepath = os.path.join(date_folder, filename)
-        file.save(filepath)
+                return render_template('import/step1.html',
+                                       duplicate=True,
+                                       existing=existing,
+                                       new_filename=filename,
+                                       new_size=file_size,
+                                       error=None)
 
-        # 保存相对路径到数据库
-        rel_path = os.path.join('uploads', date_dir, filename)
-
-        if existing and request.form.get('overwrite'):
+        if existing and overwrite:
             # 覆盖：保持原路径，更新文件内容和元数据
             filepath = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 existing.file_path
             )
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            file.save(filepath)
+            if temp_path:
+                shutil.copy(temp_path, filepath)
+            else:
+                file.save(filepath)
             existing.file_size = file_size
             existing.updated_at = datetime.now()
             db.session.commit()
         else:
+            # 新文件
+            date_dir = datetime.now().strftime('%y%m%d')
+            date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
+            os.makedirs(date_folder, exist_ok=True)
+
+            filepath = os.path.join(date_folder, filename)
+            if temp_path:
+                shutil.copy(temp_path, filepath)
+            else:
+                file.save(filepath)
+
+            rel_path = os.path.join('uploads', date_dir, filename)
             upload = Upload(title=raw_name, file_path=rel_path, file_size=file_size)
             db.session.add(upload)
             db.session.commit()
@@ -76,7 +100,6 @@ def step1():
         with open(filepath, 'r', encoding=encoding, errors='replace') as f:
             content = f.read()
 
-        # 移除 BOM 头
         if content and content[0] == '\ufeff':
             content = content[1:]
 
@@ -86,6 +109,11 @@ def step1():
 
         session['import_filepath'] = utf8_path
         session['import_filename'] = os.path.splitext(filename)[0]
+
+        # 清理临时文件
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        session.pop('import_temp_file', None)
 
         return redirect(url_for('importer.step2'))
 
