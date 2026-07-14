@@ -264,7 +264,7 @@ class TestUploadNovelId:
 
 class TestStep4UpdatesUploadNovelId:
     def test_step4_complete_updates_upload_novel_id(self, client, app):
-        """After step4 import completes, the most recent Upload record should have novel_id set."""
+        """After step4 import completes, the Upload record from step1 should have novel_id set."""
         cat_id = None
         rule_id = None
         with app.app_context():
@@ -294,13 +294,56 @@ class TestStep4UpdatesUploadNovelId:
 
         with app.app_context():
             from app.models import Upload, Novel
-            upload = Upload.query.order_by(Upload.created_at.desc()).first()
+            upload = Upload.query.filter_by(title='测试小说').first()
             assert upload is not None
             assert upload.novel_id > 0, f'step4 should set novel_id on upload, got {upload.novel_id}'
 
             novel = Novel.query.get(upload.novel_id)
             assert novel is not None
             assert novel.title == '测试小说'
+
+    def test_step4_matches_upload_by_title_not_latest(self, client, app):
+        """step4 should match the upload whose title matches the import session, not the most recent."""
+        cat_id = None
+        rule_id = None
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category, Upload
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章', category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠', sort_order=0)
+            # 小说B 更早创建，小说A 更晚创建
+            upload_b = Upload(title='小说B', file_path='uploads/260714/小说B.txt', file_size=200)
+            db.session.add_all([user, rule, cat, upload_b])
+            db.session.commit()
+            upload_b_id = upload_b.id
+            cat_id = cat.id
+            rule_id = rule.id
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 上传小说A（会创建新 Upload 记录，created_at 晚于小说B）
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '小说A.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'rule_ids': str(rule_id)}, follow_redirects=True)
+
+        response = client.post('/novels/import/step4', data={
+            'title': '小说A',
+            'category_id': str(cat_id),
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+
+        with app.app_context():
+            from app.models import Upload
+            # 小说A 的 upload 记录应该被更新（标题匹配）
+            upload_a = Upload.query.filter_by(title='小说A').first()
+            assert upload_a is not None, '小说A的upload记录应存在'
+            assert upload_a.novel_id > 0, f'小说A的upload记录应被更新, got novel_id={upload_a.novel_id}'
+
+            # 小说B 的 upload 记录不应被更新
+            upload_b = Upload.query.get(upload_b_id)
+            assert upload_b.novel_id == 0, '小说B的upload记录不应被更新'
 
     def test_step4_no_upload_record_still_works(self, client, app):
         """step4 should still work even if no Upload record exists (backward compat)."""

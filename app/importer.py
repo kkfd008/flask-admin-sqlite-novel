@@ -77,6 +77,7 @@ def step1():
             existing.file_size = file_size
             existing.updated_at = datetime.now()
             db.session.commit()
+            session['import_upload_id'] = existing.id
         else:
             # 新文件
             date_dir = datetime.now().strftime('%y%m%d')
@@ -93,6 +94,7 @@ def step1():
             upload = Upload(title=raw_name, file_path=rel_path, file_size=file_size)
             db.session.add(upload)
             db.session.commit()
+            session['import_upload_id'] = upload.id
 
         session['import_original_filename'] = raw_name
 
@@ -297,16 +299,19 @@ def step4():
         novel.word_count = sum(len(c.content) for c in novel.chapters)
         db.session.commit()
 
-        # 更新最近上传记录的 novel_id
-        latest_upload = Upload.query.order_by(Upload.created_at.desc()).first()
-        if latest_upload:
-            latest_upload.novel_id = novel.id
-            latest_upload.last_import_at = datetime.now()
-            db.session.commit()
+        # 更新上传记录的 novel_id
+        upload_id = session.get('import_upload_id')
+        if upload_id:
+            upload = Upload.query.get(upload_id)
+            if upload:
+                upload.novel_id = novel.id
+                upload.last_import_at = datetime.now()
+                db.session.commit()
 
         session.pop('import_filepath', None)
         session.pop('import_filename', None)
         session.pop('import_original_filename', None)
+        session.pop('import_upload_id', None)
         session.pop('import_pattern', None)
         session.pop('import_chapter_titles', None)
         session.pop('import_rule_ids', None)
