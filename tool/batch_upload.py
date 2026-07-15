@@ -2,17 +2,22 @@
 """批量上传小说文件到上传保存目录和上传表。
 
 用法:
-    python tool/batch_upload.py <源目录路径>
+    python tool/batch_upload.py -d <源目录> [--depth N] [--force] [--force-size]
 
-    源目录中的所有 .txt 文件会被上传到 uploads/YYMMDD/ 目录，
-    并在 Upload 表中创建对应记录。重名文件计入失败。
+    -d, --dir        指定准备上传图书的目录（必填）
+    --depth N        查找图书的目录深度，默认 1（仅当前目录）
+    --force           文件名重名时强制覆盖上传
+    --force-size      只有源文件 size 大于目标文件 size 时才强制覆盖
 
 示例:
-    python tool/batch_upload.py ~/novels/
+    python tool/batch_upload.py -d ~/novels/
+    python tool/batch_upload.py -d ~/novels/ --depth 2 --force
+    python tool/batch_upload.py -d ~/novels/ --force-size
 """
 import os
 import sys
 import shutil
+import argparse
 from datetime import datetime
 
 # 确保项目根目录在 sys.path 中
@@ -26,40 +31,89 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 DB_PATH = os.path.join(BASE_DIR, 'instance', 'novel.db')
 
 
-def batch_upload(source_dir):
+def collect_txt_files(source_dir, depth):
+    """按深度扫描目录，收集所有 .txt 文件。"""
+    txt_files = []
+
+    def walk(dirpath, current_depth):
+        if current_depth > depth:
+            return
+        try:
+            entries = sorted(os.listdir(dirpath))
+        except PermissionError:
+            return
+        for entry in entries:
+            full = os.path.join(dirpath, entry)
+            if os.path.isfile(full) and entry.lower().endswith('.txt'):
+                txt_files.append(full)
+            elif os.path.isdir(full) and current_depth < depth:
+                walk(full, current_depth + 1)
+
+    walk(source_dir, 1)
+    return txt_files
+
+
+def batch_upload(source_dir, depth=1, force=False, force_size=False):
     if not os.path.isdir(source_dir):
         print(f'错误: 源目录不存在: {source_dir}')
         sys.exit(1)
 
-    # 收集所有 .txt 文件
-    txt_files = [f for f in os.listdir(source_dir) if f.lower().endswith('.txt')]
+    txt_files = collect_txt_files(source_dir, depth)
     if not txt_files:
-        print('未找到 .txt 文件')
+        print(f'未找到 .txt 文件（深度={depth}）')
         return
 
-    print(f'找到 {len(txt_files)} 个 .txt 文件\n')
+    print(f'扫描到 {len(txt_files)} 个 .txt 文件（深度={depth}）\n')
 
     app = create_app({
         'SQLALCHEMY_DATABASE_URI': f'sqlite:///{DB_PATH}',
     })
     success = []
     failed = []
+    overwritten = []
 
     with app.app_context():
-        for filename in txt_files:
+        for src_path in txt_files:
+            filename = os.path.basename(src_path)
             raw_name = os.path.splitext(filename)[0]
             original_ext = os.path.splitext(filename)[1]
+            if not original_ext:
+                original_ext = '.txt'
             saved_filename = raw_name + original_ext
-            src_path = os.path.join(source_dir, filename)
+            src_size = os.path.getsize(src_path)
 
-            # 检查重名
             existing = Upload.query.filter_by(title=raw_name).first()
+
             if existing:
-                failed.append((filename, '文件重名：上传表中已存在同名记录'))
-                print(f'  ✗ {filename} — 跳过（重名）')
+                if force_size:
+                    if src_size <= existing.file_size:
+                        failed.append((filename, f'重名且源文件不大于已有文件 ({_format_size(src_size)} <= {_format_size(existing.file_size)})'))
+                        print(f'  ✗ {filename} — 跳过（源文件不大于已有文件）')
+                        continue
+                elif not force:
+                    failed.append((filename, '文件重名：上传表中已存在同名记录'))
+                    print(f'  ✗ {filename} — 跳过（重名）')
+                    continue
+
+                # 覆盖：保持原路径，更新文件内容和元数据
+                filepath = os.path.join(BASE_DIR, existing.file_path)
+                try:
+                    shutil.copy2(src_path, filepath)
+                except OSError as e:
+                    failed.append((filename, f'文件复制失败: {e}'))
+                    print(f'  ✗ {filename} — 复制失败')
+                    continue
+
+                existing.file_size = src_size
+                existing.updated_at = datetime.now()
+                db.session.commit()
+
+                overwritten.append(filename)
+                tag = 'force-size' if force_size else 'force'
+                print(f'  ↻ {filename} — 覆盖更新 ({tag})')
                 continue
 
-            # 复制文件到日期目录
+            # 新文件
             date_dir = datetime.now().strftime('%y%m%d')
             date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
             os.makedirs(date_folder, exist_ok=True)
@@ -72,19 +126,20 @@ def batch_upload(source_dir):
                 print(f'  ✗ {filename} — 复制失败')
                 continue
 
-            file_size = os.path.getsize(dest_path)
             rel_path = os.path.join('uploads', date_dir, saved_filename)
-
-            upload = Upload(title=raw_name, file_path=rel_path, file_size=file_size)
+            upload = Upload(title=raw_name, file_path=rel_path, file_size=src_size)
             db.session.add(upload)
             db.session.commit()
 
             success.append(filename)
             print(f'  ✓ {filename}')
 
-    # 输出汇总
+    # 汇总
     print(f'\n{"=" * 50}')
-    print(f'上传完成: 成功 {len(success)} 个, 失败 {len(failed)} 个')
+    total_new = len(success)
+    total_overwrite = len(overwritten)
+    total_fail = len(failed)
+    print(f'上传完成: 新增 {total_new} / 覆盖 {total_overwrite} / 失败 {total_fail}')
     print(f'{"=" * 50}')
 
     if failed:
@@ -92,15 +147,31 @@ def batch_upload(source_dir):
         for name, reason in failed:
             print(f'  ✗ {name} — {reason}')
 
+    if overwritten:
+        print('\n覆盖列表:')
+        for name in overwritten:
+            print(f'  ↻ {name}')
+
     if success:
-        print('\n成功列表:')
+        print('\n新增列表:')
         for name in success:
             print(f'  ✓ {name}')
 
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('用法: python tool/batch_upload.py <源目录路径>')
-        sys.exit(1)
+def _format_size(size):
+    if size >= 1048576:
+        return f'{size / 1048576:.2f} MB'
+    elif size >= 1024:
+        return f'{size / 1024:.2f} KB'
+    return f'{size} B'
 
-    batch_upload(sys.argv[1])
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='批量上传小说文件')
+    parser.add_argument('-d', '--dir', required=True, help='准备上传图书的目录')
+    parser.add_argument('--depth', type=int, default=1, help='查找图书的目录深度，默认 1')
+    parser.add_argument('--force', action='store_true', help='文件名重名时强制覆盖')
+    parser.add_argument('--force-size', action='store_true', help='源文件大于目标文件时才覆盖')
+    args = parser.parse_args()
+
+    batch_upload(args.dir, depth=args.depth, force=args.force, force_size=args.force_size)

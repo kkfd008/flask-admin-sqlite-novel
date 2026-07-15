@@ -23,6 +23,9 @@ def _migrate_db(app):
     # Upload: file_size
     cursor.execute("PRAGMA table_info(upload)")
     upload_cols = [row[1] for row in cursor.fetchall()]
+    if not upload_cols:
+        conn.close()
+        return
     if 'file_size' not in upload_cols:
         cursor.execute("ALTER TABLE upload ADD COLUMN file_size INTEGER DEFAULT 0")
     if 'novel_id' not in upload_cols:
