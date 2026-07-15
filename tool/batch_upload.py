@@ -2,22 +2,26 @@
 """批量上传小说文件到上传保存目录和上传表。
 
 用法:
-    python tool/batch_upload.py -d <源目录> [--depth N] [--force] [--force-size]
+    python tool/batch_upload.py -d <源目录> [--depth N] [--force] [--force-size] [--sqlite-db PATH]
 
-    -d, --dir        指定准备上传图书的目录（必填）
-    --depth N        查找图书的目录深度，默认 1（仅当前目录）
+    -d, --dir         指定准备上传图书的目录（必填）
+    --depth N         查找图书的目录深度，默认 1（仅当前目录）
     --force           文件名重名时强制覆盖上传
     --force-size      只有源文件 size 大于目标文件 size 时才强制覆盖
+    --sqlite-db PATH  指定 SQLite 数据库文件路径，默认 instance/novel.db
+
+    上传流程与 web 端一致：检测编码 → 转换为 UTF-8 → 保存 .utf8 副本 → 写入上传表。
+    路径格式: uploads/YYMMDD/源文件所在上级目录名/文件名.txt
 
 示例:
     python tool/batch_upload.py -d ~/novels/
-    python tool/batch_upload.py -d ~/novels/ --depth 2 --force
-    python tool/batch_upload.py -d ~/novels/ --force-size
+    python tool/batch_upload.py -d ~/novels/ --depth 2 --force --sqlite-db /data/novel.db
 """
 import os
 import sys
 import shutil
 import argparse
+import chardet
 from datetime import datetime
 
 # 确保项目根目录在 sys.path 中
@@ -28,11 +32,11 @@ from app.models import Upload
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
-DB_PATH = os.path.join(BASE_DIR, 'instance', 'novel.db')
+DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'instance', 'novel.db')
 
 
 def collect_txt_files(source_dir, depth):
-    """按深度扫描目录，收集所有 .txt 文件。"""
+    """按深度扫描目录，收集所有 .txt 文件及其上级目录名。"""
     txt_files = []
 
     def walk(dirpath, current_depth):
@@ -45,7 +49,13 @@ def collect_txt_files(source_dir, depth):
         for entry in entries:
             full = os.path.join(dirpath, entry)
             if os.path.isfile(full) and entry.lower().endswith('.txt'):
-                txt_files.append(full)
+                # 计算相对于源目录的上级目录名
+                parent_dir = os.path.dirname(full)
+                if parent_dir == source_dir:
+                    subdir = ''
+                else:
+                    subdir = os.path.relpath(parent_dir, source_dir)
+                txt_files.append((full, subdir))
             elif os.path.isdir(full) and current_depth < depth:
                 walk(full, current_depth + 1)
 
@@ -53,41 +63,71 @@ def collect_txt_files(source_dir, depth):
     return txt_files
 
 
-def batch_upload(source_dir, depth=1, force=False, force_size=False):
+def convert_to_utf8(src_path, dest_dir):
+    """检测编码并转换为 UTF-8 保存。
+
+    返回: (原文件路径, utf8文件路径, 文件大小)
+    """
+    raw_data = open(src_path, 'rb').read()
+    detected = chardet.detect(raw_data)
+    encoding = detected.get('encoding', 'utf-8')
+
+    with open(src_path, 'r', encoding=encoding, errors='replace') as f:
+        content = f.read()
+
+    if content and content[0] == '\ufeff':
+        content = content[1:]
+
+    filename = os.path.basename(src_path)
+    orig_path = os.path.join(dest_dir, filename)
+    utf8_path = orig_path + '.utf8'
+
+    os.makedirs(dest_dir, exist_ok=True)
+    shutil.copy2(src_path, orig_path)
+    with open(utf8_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    return orig_path, utf8_path, os.path.getsize(orig_path)
+
+
+def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=None):
     if not os.path.isdir(source_dir):
         print(f'错误: 源目录不存在: {source_dir}')
         sys.exit(1)
+
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
 
     txt_files = collect_txt_files(source_dir, depth)
     if not txt_files:
         print(f'未找到 .txt 文件（深度={depth}）')
         return
 
-    print(f'扫描到 {len(txt_files)} 个 .txt 文件（深度={depth}）\n')
+    print(f'扫描到 {len(txt_files)} 个 .txt 文件（深度={depth}）')
+    print(f'数据库: {db_path}\n')
 
     app = create_app({
-        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{DB_PATH}',
+        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
     })
     success = []
     failed = []
     overwritten = []
 
     with app.app_context():
-        for src_path in txt_files:
+        for src_path, subdir in txt_files:
             filename = os.path.basename(src_path)
             raw_name = os.path.splitext(filename)[0]
             original_ext = os.path.splitext(filename)[1]
             if not original_ext:
                 original_ext = '.txt'
             saved_filename = raw_name + original_ext
-            src_size = os.path.getsize(src_path)
 
             existing = Upload.query.filter_by(title=raw_name).first()
 
             if existing:
                 if force_size:
-                    if src_size <= existing.file_size:
-                        failed.append((filename, f'重名且源文件不大于已有文件 ({_format_size(src_size)} <= {_format_size(existing.file_size)})'))
+                    if os.path.getsize(src_path) <= existing.file_size:
+                        failed.append((filename, f'重名且源文件不大于已有文件 ({_format_size(os.path.getsize(src_path))} <= {_format_size(existing.file_size)})'))
                         print(f'  ✗ {filename} — 跳过（源文件不大于已有文件）')
                         continue
                 elif not force:
@@ -98,14 +138,26 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False):
                 # 覆盖：保持原路径，更新文件内容和元数据
                 filepath = os.path.join(BASE_DIR, existing.file_path)
                 try:
+                    # 转换 UTF-8 并覆盖
+                    raw_data = open(src_path, 'rb').read()
+                    detected = chardet.detect(raw_data)
+                    encoding = detected.get('encoding', 'utf-8')
+                    with open(src_path, 'r', encoding=encoding, errors='replace') as f:
+                        content = f.read()
+                    if content and content[0] == '\ufeff':
+                        content = content[1:]
                     shutil.copy2(src_path, filepath)
-                except OSError as e:
-                    failed.append((filename, f'文件复制失败: {e}'))
-                    print(f'  ✗ {filename} — 复制失败')
+                    utf8_path = filepath + '.utf8'
+                    with open(utf8_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                except (OSError, UnicodeError) as e:
+                    failed.append((filename, f'文件处理失败: {e}'))
+                    print(f'  ✗ {filename} — 处理失败')
                     continue
 
-                existing.file_size = src_size
+                existing.file_size = os.path.getsize(src_path)
                 existing.updated_at = datetime.now()
+                existing.last_import_at = datetime.now()
                 db.session.commit()
 
                 overwritten.append(filename)
@@ -113,26 +165,34 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False):
                 print(f'  ↻ {filename} — 覆盖更新 ({tag})')
                 continue
 
-            # 新文件
+            # 新文件：上传到 uploads/YYMMDD/子目录/
             date_dir = datetime.now().strftime('%y%m%d')
-            date_folder = os.path.join(UPLOAD_FOLDER, date_dir)
-            os.makedirs(date_folder, exist_ok=True)
+            if subdir:
+                dest_dir = os.path.join(UPLOAD_FOLDER, date_dir, subdir)
+                rel_dir = os.path.join('uploads', date_dir, subdir)
+            else:
+                dest_dir = os.path.join(UPLOAD_FOLDER, date_dir)
+                rel_dir = os.path.join('uploads', date_dir)
 
-            dest_path = os.path.join(date_folder, saved_filename)
             try:
-                shutil.copy2(src_path, dest_path)
-            except OSError as e:
-                failed.append((filename, f'文件复制失败: {e}'))
-                print(f'  ✗ {filename} — 复制失败')
+                orig_path, utf8_path, file_size = convert_to_utf8(src_path, dest_dir)
+            except (OSError, UnicodeError) as e:
+                failed.append((filename, f'文件处理失败: {e}'))
+                print(f'  ✗ {filename} — 处理失败')
                 continue
 
-            rel_path = os.path.join('uploads', date_dir, saved_filename)
-            upload = Upload(title=raw_name, file_path=rel_path, file_size=src_size)
+            # 记录 .utf8 路径到上传表（与 web 端 importer 一致）
+            rel_path = os.path.join(rel_dir, saved_filename)
+            upload = Upload(
+                title=raw_name,
+                file_path=rel_path,
+                file_size=file_size,
+            )
             db.session.add(upload)
             db.session.commit()
 
             success.append(filename)
-            print(f'  ✓ {filename}')
+            print(f'  ✓ {filename} → {rel_path}')
 
     # 汇总
     print(f'\n{"=" * 50}')
@@ -172,6 +232,13 @@ if __name__ == '__main__':
     parser.add_argument('--depth', type=int, default=1, help='查找图书的目录深度，默认 1')
     parser.add_argument('--force', action='store_true', help='文件名重名时强制覆盖')
     parser.add_argument('--force-size', action='store_true', help='源文件大于目标文件时才覆盖')
+    parser.add_argument('--sqlite-db', default=None, help='SQLite 数据库文件路径，默认 instance/novel.db')
     args = parser.parse_args()
 
-    batch_upload(args.dir, depth=args.depth, force=args.force, force_size=args.force_size)
+    batch_upload(
+        args.dir,
+        depth=args.depth,
+        force=args.force,
+        force_size=args.force_size,
+        db_path=args.sqlite_db,
+    )
