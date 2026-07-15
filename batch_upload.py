@@ -2,7 +2,7 @@
 """批量上传小说文件到上传保存目录和上传表。
 
 用法:
-    python tool/batch_upload.py -d <源目录> [--depth N] [--force] [--force-size] [--sqlite-db PATH] [--type EXT]
+    python batch_upload.py -d <源目录> [--depth N] [--force] [--force-size] [--sqlite-db PATH] [--type EXT]
 
     -d, --dir         指定准备上传图书的目录（必填）
     --depth N         查找图书的目录深度，默认 1（仅当前目录）
@@ -15,8 +15,8 @@
     路径格式: uploads/YYMMDD/源文件所在上级目录名/文件名.txt
 
 示例:
-    python tool/batch_upload.py -d ~/novels/
-    python tool/batch_upload.py -d ~/novels/ --depth 2 --force --sqlite-db /data/novel.db
+    python batch_upload.py -d ~/novels/
+    python batch_upload.py -d ~/novels/ --depth 2 --force --sqlite-db /data/novel.db
 """
 import os
 import sys
@@ -26,12 +26,12 @@ import chardet
 from datetime import datetime
 
 # 确保项目根目录在 sys.path 中
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app, db
 from app.models import Upload
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'instance', 'novel.db')
 
