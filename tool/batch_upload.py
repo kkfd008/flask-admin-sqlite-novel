@@ -2,13 +2,14 @@
 """批量上传小说文件到上传保存目录和上传表。
 
 用法:
-    python tool/batch_upload.py -d <源目录> [--depth N] [--force] [--force-size] [--sqlite-db PATH]
+    python tool/batch_upload.py -d <源目录> [--depth N] [--force] [--force-size] [--sqlite-db PATH] [--type EXT]
 
     -d, --dir         指定准备上传图书的目录（必填）
     --depth N         查找图书的目录深度，默认 1（仅当前目录）
     --force           文件名重名时强制覆盖上传
     --force-size      只有源文件 size 大于目标文件 size 时才强制覆盖
     --sqlite-db PATH  指定 SQLite 数据库文件路径，默认 instance/novel.db
+    -t, --type EXT    指定上传文件后缀，默认 .txt（如 -t .epub）
 
     上传流程与 web 端一致：检测编码 → 转换为 UTF-8 → 保存 .utf8 副本 → 写入上传表。
     路径格式: uploads/YYMMDD/源文件所在上级目录名/文件名.txt
@@ -35,8 +36,8 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'instance', 'novel.db')
 
 
-def collect_txt_files(source_dir, depth):
-    """按深度扫描目录，收集所有 .txt 文件及其上级目录名。"""
+def collect_txt_files(source_dir, depth, ext='.txt'):
+    """按深度扫描目录，收集所有指定后缀的文件及其上级目录名。"""
     txt_files = []
 
     def walk(dirpath, current_depth):
@@ -48,7 +49,7 @@ def collect_txt_files(source_dir, depth):
             return
         for entry in entries:
             full = os.path.join(dirpath, entry)
-            if os.path.isfile(full) and entry.lower().endswith('.txt'):
+            if os.path.isfile(full) and entry.lower().endswith(ext.lower()):
                 # 计算相对于源目录的上级目录名
                 parent_dir = os.path.dirname(full)
                 if parent_dir == source_dir:
@@ -90,7 +91,7 @@ def convert_to_utf8(src_path, dest_dir):
     return orig_path, utf8_path, os.path.getsize(orig_path)
 
 
-def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=None):
+def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=None, ext='.txt'):
     if not os.path.isdir(source_dir):
         print(f'错误: 源目录不存在: {source_dir}')
         sys.exit(1)
@@ -98,17 +99,19 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
     if db_path is None:
         db_path = DEFAULT_DB_PATH
 
-    txt_files = collect_txt_files(source_dir, depth)
+    txt_files = collect_txt_files(source_dir, depth, ext=ext)
     if not txt_files:
-        print(f'未找到 .txt 文件（深度={depth}）')
+        print(f'未找到 {ext} 文件（深度={depth}）')
         return
 
-    print(f'扫描到 {len(txt_files)} 个 .txt 文件（深度={depth}）')
+    print(f'扫描到 {len(txt_files)} 个 {ext} 文件（深度={depth}）')
     print(f'数据库: {db_path}\n')
 
     app = create_app({
         'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
     })
+    with app.app_context():
+        db.create_all()
     success = []
     failed = []
     overwritten = []
@@ -233,6 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--force', action='store_true', help='文件名重名时强制覆盖')
     parser.add_argument('--force-size', action='store_true', help='源文件大于目标文件时才覆盖')
     parser.add_argument('--sqlite-db', default=None, help='SQLite 数据库文件路径，默认 instance/novel.db')
+    parser.add_argument('-t', '--type', default='.txt', help='指定上传文件后缀，默认 .txt')
     args = parser.parse_args()
 
     batch_upload(
@@ -241,4 +245,5 @@ if __name__ == '__main__':
         force=args.force,
         force_size=args.force_size,
         db_path=args.sqlite_db,
+        ext=args.type,
     )
