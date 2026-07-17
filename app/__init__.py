@@ -14,12 +14,15 @@ db = SQLAlchemy()
 # ── Babel config ──
 SUPPORTED_LOCALES = ['zh', 'en']
 
+# Map short locale codes to Flask-Admin locale names
+LOCALE_MAP = {'zh': 'zh_Hans_CN', 'en': 'en'}
+
 
 def get_locale():
     lang = flask_session.get('lang')
     if lang in SUPPORTED_LOCALES:
-        return lang
-    return request.accept_languages.best_match(SUPPORTED_LOCALES, 'zh')
+        return LOCALE_MAP[lang]
+    return request.accept_languages.best_match(['zh_Hans_CN', 'en'], 'zh_Hans_CN')
 
 
 class AdminDashboardView(AdminIndexView):
@@ -193,7 +196,11 @@ def create_app(config=None):
     Session(app)
 
     # i18n
-    babel = Babel(app, locale_selector=get_locale)
+    app.config['BABEL_DEFAULT_LOCALE'] = 'zh_Hans_CN'
+    import flask_admin
+    admin_translations = os.path.join(os.path.dirname(flask_admin.__file__), 'translations')
+    app.config['BABEL_TRANSLATION_DIRECTORIES'] = admin_translations + ';translations'
+    babel = Babel(app, default_locale='zh_Hans_CN', locale_selector=get_locale)
 
     db.init_app(app)
 
@@ -241,16 +248,16 @@ def create_app(config=None):
 
     from app.models import User, Category, Novel, Chapter, ChapterRule, NovelChapterRule, Tag, Favorite, Rating, ReadingProgress, Bookmark
 
-    admin.add_view(UserAdmin(User, db.session))
-    admin.add_view(CategoryAdmin(Category, db.session))
-    admin.add_view(NovelAdmin(Novel, db.session))
-    admin.add_view(ChapterAdmin(Chapter, db.session))
-    admin.add_view(ChapterRuleAdmin(ChapterRule, db.session))
-    admin.add_view(NovelChapterRuleAdmin(NovelChapterRule, db.session))
-    admin.add_view(TagAdmin(Tag, db.session))
-    admin.add_view(FavoriteAdmin(Favorite, db.session))
-    admin.add_view(RatingAdmin(Rating, db.session))
-    admin.add_view(ReadingProgressAdmin(ReadingProgress, db.session))
-    admin.add_view(BookmarkAdmin(Bookmark, db.session))
+    admin.add_view(UserAdmin(User, db.session, name='用户'))
+    admin.add_view(CategoryAdmin(Category, db.session, name='分类'))
+    admin.add_view(NovelAdmin(Novel, db.session, name='小说'))
+    admin.add_view(ChapterAdmin(Chapter, db.session, name='章节'))
+    admin.add_view(ChapterRuleAdmin(ChapterRule, db.session, name='章节规则'))
+    admin.add_view(NovelChapterRuleAdmin(NovelChapterRule, db.session, name='小说章节规则'))
+    admin.add_view(TagAdmin(Tag, db.session, name='标签'))
+    admin.add_view(FavoriteAdmin(Favorite, db.session, name='收藏'))
+    admin.add_view(RatingAdmin(Rating, db.session, name='评分'))
+    admin.add_view(ReadingProgressAdmin(ReadingProgress, db.session, name='阅读进度'))
+    admin.add_view(BookmarkAdmin(Bookmark, db.session, name='书签'))
 
     return app
