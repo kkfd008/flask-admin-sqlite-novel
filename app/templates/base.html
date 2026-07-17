@@ -611,6 +611,7 @@ tr:hover td { background: var(--accent-subtle); }
   <a href="{{ url_for('novels.list') }}" class="nav-brand">墨斋</a>
   <div class="nav-links">
     <a href="{{ url_for('novels.list') }}" class="{% if request.endpoint == 'novels.list' %}active{% endif %}">书架</a>
+    <a href="{{ url_for('novels.uploads') }}" class="{% if request.endpoint == 'novels.uploads' %}active{% endif %}">导入</a>
     <a href="{{ url_for('favorites.list') }}" class="{% if request.endpoint == 'favorites.list' %}active{% endif %}">收藏</a>
     <a href="{{ url_for('categories.list') }}" class="{% if request.endpoint == 'categories.list' %}active{% endif %}">分类</a>
     <a href="{{ url_for('tags.list') }}" class="{% if request.endpoint == 'tags.list' %}active{% endif %}">标签</a>
@@ -630,6 +631,7 @@ tr:hover td { background: var(--accent-subtle); }
 <!-- Mobile Navigation (hidden - now using bottom tab bar) -->
 <div class="mobile-nav" id="mobileNav">
   <a href="{{ url_for('novels.list') }}">书架</a>
+  <a href="{{ url_for('novels.uploads') }}">导入</a>
   <a href="{{ url_for('favorites.list') }}">收藏</a>
   <a href="{{ url_for('categories.list') }}">分类管理</a>
   <a href="{{ url_for('tags.list') }}">标签管理</a>
@@ -669,6 +671,10 @@ tr:hover td { background: var(--accent-subtle); }
     <label for="more-menu-toggle" class="bottom-sheet-close">✕</label>
   </div>
   <div class="bottom-sheet-content">
+    <a href="{{ url_for('novels.uploads') }}" class="bottom-sheet-item" onclick="document.getElementById('more-menu-toggle').checked = false;">
+      <span class="bottom-sheet-item-text">导入</span>
+      <span>→</span>
+    </a>
     <a href="{{ url_for('categories.list') }}" class="bottom-sheet-item" onclick="document.getElementById('more-menu-toggle').checked = false;">
       <span class="bottom-sheet-item-text">分类管理</span>
       <span>→</span>
