@@ -617,6 +617,7 @@ tr:hover td { background: var(--accent-subtle); }
     <a href="{{ url_for('rules.list') }}" class="{% if request.endpoint == 'rules.list' %}active{% endif %}">规则</a>
     <a href="{{ url_for('novels.uploads') if has_uploads else url_for('importer.step1') }}" class="{% if request.endpoint and ('importer' in request.endpoint or 'novels.uploads' in request.endpoint) %}active{% endif %}">导入</a>
     <a href="{{ url_for('search.search') }}" class="{% if request.endpoint == 'search.search' %}active{% endif %}">搜索</a>
+    <a href="{{ url_for('admin.index') }}" class="{% if request.endpoint and 'admin' in request.endpoint %}active{% endif %}">管理</a>
   </div>
   <div class="nav-actions">
     <button class="theme-toggle" id="themeToggle" aria-label="切换主题" title="切换主题">☀️</button>
@@ -688,6 +689,10 @@ tr:hover td { background: var(--accent-subtle); }
     </a>
     <a href="{{ url_for('auth.logout') }}" class="bottom-sheet-item" style="color: var(--danger);">
       <span class="bottom-sheet-item-text">退出登录</span>
+      <span>→</span>
+    </a>
+    <a href="{{ url_for('admin.index') }}" class="bottom-sheet-item">
+      <span class="bottom-sheet-item-text">管理后台</span>
       <span>→</span>
     </a>
   </div>

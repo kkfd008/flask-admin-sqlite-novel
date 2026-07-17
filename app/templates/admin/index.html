@@ -1,0 +1,79 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div style="margin-bottom: 28px;">
+  <h1 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 700; color: var(--text-primary); letter-spacing: 0.05em; margin-bottom: 6px;">
+    管理后台
+  </h1>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">
+    数据概览 · 管理所有模型数据
+  </p>
+</div>
+
+<!-- Stat Cards -->
+<div class="admin-card-grid">
+  <a href="{{ url_for('novel.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">📚</div>
+    <div class="admin-stat-value">{{ stats.novels }}</div>
+    <div class="admin-stat-label">小说</div>
+  </a>
+
+  <a href="{{ url_for('chapter.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">📄</div>
+    <div class="admin-stat-value">{{ stats.chapters }}</div>
+    <div class="admin-stat-label">章节</div>
+  </a>
+
+  <a href="{{ url_for('category.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">📁</div>
+    <div class="admin-stat-value">{{ stats.categories }}</div>
+    <div class="admin-stat-label">分类</div>
+  </a>
+
+  <a href="{{ url_for('tag.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">🏷️</div>
+    <div class="admin-stat-value">{{ stats.tags }}</div>
+    <div class="admin-stat-label">标签</div>
+  </a>
+
+  <a href="{{ url_for('user.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">👤</div>
+    <div class="admin-stat-value">{{ stats.users }}</div>
+    <div class="admin-stat-label">用户</div>
+  </a>
+
+  <a href="{{ url_for('favorite.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">⭐</div>
+    <div class="admin-stat-value">{{ stats.favorites }}</div>
+    <div class="admin-stat-label">收藏</div>
+  </a>
+
+  <a href="{{ url_for('rating.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">💬</div>
+    <div class="admin-stat-value">{{ stats.ratings }}</div>
+    <div class="admin-stat-label">评分</div>
+  </a>
+
+  <a href="{{ url_for('chapterrule.index_view') }}" class="admin-stat-card">
+    <div class="admin-stat-icon">📐</div>
+    <div class="admin-stat-value">{{ stats.chapter_rules + stats.novel_chapter_rules }}</div>
+    <div class="admin-stat-label">章节规则</div>
+  </a>
+</div>
+
+<!-- Quick Links -->
+<div class="admin-card" style="margin-bottom: 24px;">
+  <h2>快捷操作</h2>
+  <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+    <a href="{{ url_for('novel.create_view') }}" class="admin-btn admin-btn-primary">
+      + 添加小说
+    </a>
+    <a href="{{ url_for('category.create_view') }}" class="admin-btn admin-btn-secondary">
+      + 新建分类
+    </a>
+    <a href="{{ url_for('tag.create_view') }}" class="admin-btn admin-btn-secondary">
+      + 新建标签
+    </a>
+  </div>
+</div>
+{% endblock %}
