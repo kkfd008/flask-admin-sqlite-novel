@@ -31,7 +31,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app, db
-from app.models import Upload, Novel, Chapter, ChapterRule
+from app.models import Upload, Novel, Chapter, ChapterRule, Category
 from app.utils import get_best_pattern, split_chapters, split_by_fixed_length, init_default_rules
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -89,7 +89,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
     failed = []
     overwritten = []
     # 记录上传成功的文件路径，用于后续导入步骤
-    uploaded = []  # [(upload_id, filepath, raw_name)]
+    uploaded = []  # [(upload_id, filepath, raw_name, subdir)]
 
     with app.app_context():
         for src_path, subdir in txt_files:
@@ -164,7 +164,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
             print(f'  ✓ {filename} → {rel_path}')
 
             if last_step >= 3:
-                uploaded.append((upload.id, dest_path, raw_name))
+                    uploaded.append((upload.id, dest_path, raw_name, subdir))
 
     # 汇总
     print(f'\n{"=" * 50}')
@@ -202,7 +202,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
             # 初始化默认规则（确保 get_best_pattern 可用）
             init_default_rules()
 
-            for upload_id, filepath, raw_name in uploaded:
+            for upload_id, filepath, raw_name, subdir in uploaded:
                 try:
                     # 读取文件内容
                     with open(filepath, 'r', encoding='utf-8') as f:
@@ -227,11 +227,21 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                         print(f'  ✗ {raw_name} — 未识别到章节')
                         continue
 
+                    # 创建或获取分类（以文件所在目录名为分类名）
+                    category_id = None
+                    if subdir:
+                        cat = Category.query.filter_by(name=subdir).first()
+                        if not cat:
+                            cat = Category(name=subdir, sort_order=0)
+                            db.session.add(cat)
+                            db.session.commit()
+                        category_id = cat.id
+
                     # 创建 Novel
                     novel = Novel(
                         title=raw_name,
                         author='',
-                        category_id=None,
+                        category_id=category_id,
                     )
                     db.session.add(novel)
                     db.session.commit()
