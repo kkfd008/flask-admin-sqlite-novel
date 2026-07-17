@@ -1,12 +1,25 @@
-from flask import Flask
+from flask import Flask, request, session as flask_session
 from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin, AdminIndexView, expose
+from flask_admin.contrib.sqla import ModelView
 from flask_session import Session
+from flask_babel import Babel, lazy_gettext as _l
 import os
 import sqlite3
-from flask_admin.contrib.sqla import ModelView
+from werkzeug.security import generate_password_hash
+from wtforms import PasswordField
 
 db = SQLAlchemy()
+
+# ── Babel config ──
+SUPPORTED_LOCALES = ['zh', 'en']
+
+
+def get_locale():
+    lang = flask_session.get('lang')
+    if lang in SUPPORTED_LOCALES:
+        return lang
+    return request.accept_languages.best_match(SUPPORTED_LOCALES, 'zh')
 
 
 class AdminDashboardView(AdminIndexView):
@@ -38,7 +51,6 @@ def _migrate_db(app):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Upload: file_size
     cursor.execute("PRAGMA table_info(upload)")
     upload_cols = [row[1] for row in cursor.fetchall()]
     if not upload_cols:
@@ -55,12 +67,35 @@ def _migrate_db(app):
 
 class AuthModelView(ModelView):
     def is_accessible(self):
-        from flask import session
-        return 'user_id' in session
+        return 'user_id' in flask_session
 
     def inaccessible_callback(self, name, **kwargs):
         from flask import redirect, url_for
         return redirect(url_for('auth.login'))
+
+
+class UserAdmin(AuthModelView):
+    """Custom user admin: hide password_hash, only allow password changes."""
+    column_list = ('id', 'username', 'created_at')
+    column_labels = {
+        'id': 'ID',
+        'username': '用户名',
+        'created_at': '创建时间',
+    }
+    column_searchable_list = ('username',)
+    page_size = 20
+
+    # Replace password_hash with a plaintext password field
+    form_excluded_columns = ('password_hash',)
+    form_extra_fields = {
+        'password': PasswordField('密码'),
+    }
+    form_create_rules = ('username', 'password')
+    form_edit_rules = ('password',)
+
+    def on_model_change(self, form, model, is_created):
+        if form.password.data:
+            model.password_hash = generate_password_hash(form.password.data)
 
 
 class NovelAdmin(AuthModelView):
@@ -79,6 +114,69 @@ class NovelAdmin(AuthModelView):
     page_size = 20
 
 
+class CategoryAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'name': '名称', 'description': '描述',
+        'sort_order': '排序',
+    }
+    column_searchable_list = ('name',)
+
+
+class ChapterAdmin(AuthModelView):
+    column_list = ('id', 'title', 'novel', 'order', 'word_count')
+    column_labels = {
+        'id': 'ID', 'title': '标题', 'novel': '小说',
+        'order': '序号', 'word_count': '字数',
+    }
+    column_searchable_list = ('title',)
+
+
+class ChapterRuleAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'name': '名称', 'pattern': '匹配模式',
+        'description': '描述',
+    }
+    column_searchable_list = ('name', 'pattern')
+
+
+class NovelChapterRuleAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'novel': '小说', 'chapter_rule': '章节规则',
+    }
+
+
+class TagAdmin(AuthModelView):
+    column_labels = {'id': 'ID', 'name': '名称', 'color': '颜色'}
+    column_searchable_list = ('name',)
+
+
+class RatingAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'novel': '小说', 'user': '用户',
+        'score': '评分', 'comment': '评论', 'created_at': '创建时间',
+    }
+
+
+class FavoriteAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'novel': '小说', 'user': '用户', 'created_at': '收藏时间',
+    }
+
+
+class ReadingProgressAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'user': '用户', 'novel': '小说',
+        'chapter': '章节', 'position': '阅读位置', 'updated_at': '更新时间',
+    }
+
+
+class BookmarkAdmin(AuthModelView):
+    column_labels = {
+        'id': 'ID', 'user': '用户', 'novel': '小说',
+        'chapter': '章节', 'note': '备注', 'created_at': '创建时间',
+    }
+
+
 def create_app(config=None):
     app = Flask(__name__)
 
@@ -93,6 +191,9 @@ def create_app(config=None):
     app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'flask_session')
     app.config['SESSION_PERMANENT'] = False
     Session(app)
+
+    # i18n
+    babel = Babel(app, locale_selector=get_locale)
 
     db.init_app(app)
 
@@ -124,6 +225,14 @@ def create_app(config=None):
     app.register_blueprint(editor_bp)
     app.register_blueprint(importer_bp)
 
+    # Language switch route
+    @app.route('/admin/lang/<lang>')
+    def set_lang(lang):
+        if lang in SUPPORTED_LOCALES:
+            flask_session['lang'] = lang
+        from flask import redirect
+        return redirect(request.referrer or '/admin/')
+
     admin = Admin(
         app,
         name='墨斋 · 管理',
@@ -132,16 +241,16 @@ def create_app(config=None):
 
     from app.models import User, Category, Novel, Chapter, ChapterRule, NovelChapterRule, Tag, Favorite, Rating, ReadingProgress, Bookmark
 
-    admin.add_view(AuthModelView(User, db.session))
-    admin.add_view(AuthModelView(Category, db.session))
+    admin.add_view(UserAdmin(User, db.session))
+    admin.add_view(CategoryAdmin(Category, db.session))
     admin.add_view(NovelAdmin(Novel, db.session))
-    admin.add_view(AuthModelView(Chapter, db.session))
-    admin.add_view(AuthModelView(ChapterRule, db.session))
-    admin.add_view(AuthModelView(NovelChapterRule, db.session))
-    admin.add_view(AuthModelView(Tag, db.session))
-    admin.add_view(AuthModelView(Favorite, db.session))
-    admin.add_view(AuthModelView(Rating, db.session))
-    admin.add_view(AuthModelView(ReadingProgress, db.session))
-    admin.add_view(AuthModelView(Bookmark, db.session))
+    admin.add_view(ChapterAdmin(Chapter, db.session))
+    admin.add_view(ChapterRuleAdmin(ChapterRule, db.session))
+    admin.add_view(NovelChapterRuleAdmin(NovelChapterRule, db.session))
+    admin.add_view(TagAdmin(Tag, db.session))
+    admin.add_view(FavoriteAdmin(Favorite, db.session))
+    admin.add_view(RatingAdmin(Rating, db.session))
+    admin.add_view(ReadingProgressAdmin(ReadingProgress, db.session))
+    admin.add_view(BookmarkAdmin(Bookmark, db.session))
 
     return app
