@@ -8,12 +8,16 @@
       <h1>标签管理</h1>
       <p>管理小说标签，共 {{ tags|length }} 个标签</p>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="document.getElementById('createForm').style.display='block'; this.style.display='none';">新建标签</button>
+    <button class="btn btn-primary btn-sm" onclick="showCreate()">新建标签</button>
   </div>
 </div>
 
+<!-- Create Form -->
 <div class="card mb-3" id="createForm" style="display:none;">
-  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">新建标签</h3>
+  <div class="flex-between mb-2">
+    <h3 style="font-family:var(--font-display); font-size:1rem; color:var(--text-secondary);">新建标签</h3>
+    <button onclick="hideCreate()" class="btn btn-secondary btn-xs" style="min-width:32px; min-height:32px; padding:0;">✕</button>
+  </div>
   <form method="post" action="{{ url_for('tags.create') }}">
     <div class="tag-form-grid">
       <div class="form-group" style="margin-bottom:0;">
@@ -30,20 +34,19 @@
 </div>
 
 {% if tags %}
-<div class="grid grid-3">
+<div class="tag-grid">
   {% for tag in tags %}
-  <div class="card tag-card" style="padding:16px;">
-    <div class="flex-between" style="flex-wrap:wrap; gap:8px;">
-      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-        <span style="width:12px; height:12px; border-radius:3px; background:{{ tag.color }}; flex-shrink:0;"></span>
-        <strong style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ tag.name }}</strong>
-      </div>
-      <div style="display:flex; gap:4px;">
-        <button class="btn btn-secondary btn-xs" onclick="editTag({{ tag.id }}, '{{ tag.name }}', '{{ tag.color }}')">编辑</button>
-        <form method="post" action="{{ url_for('tags.delete', id=tag.id) }}" style="display:inline;" onsubmit="return confirm('确定删除标签「{{ tag.name }}」？')">
-          <button type="submit" class="btn btn-danger btn-xs">删除</button>
-        </form>
-      </div>
+  <div class="tag-card">
+    <div class="tag-card-swatch" style="background:{{ tag.color }};"></div>
+    <div class="tag-card-body">
+      <div class="tag-card-name">{{ tag.name }}</div>
+      <div class="tag-card-color">{{ tag.color }}</div>
+    </div>
+    <div class="tag-card-actions">
+      <button class="btn btn-secondary btn-xs" onclick="editTag({{ tag.id }}, '{{ tag.name|e }}', '{{ tag.color }}')" title="编辑">✎</button>
+      <form method="post" action="{{ url_for('tags.delete', id=tag.id) }}" style="display:inline;" onsubmit="return confirm('确定删除标签「{{ tag.name }}」？')">
+        <button type="submit" class="btn btn-danger btn-xs" title="删除">✕</button>
+      </form>
     </div>
   </div>
   {% endfor %}
@@ -53,11 +56,16 @@
   <div class="icon">🏷️</div>
   <h3>暂无标签</h3>
   <p>创建标签来分类你的小说</p>
+  <button class="btn btn-primary mt-2" onclick="showCreate()">创建第一个标签</button>
 </div>
 {% endif %}
 
+<!-- Edit Form -->
 <div class="card mt-3" id="editForm" style="display:none;">
-  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">编辑标签</h3>
+  <div class="flex-between mb-2">
+    <h3 style="font-family:var(--font-display); font-size:1rem; color:var(--text-secondary);">编辑标签</h3>
+    <button onclick="hideEdit()" class="btn btn-secondary btn-xs" style="min-width:32px; min-height:32px; padding:0;">✕</button>
+  </div>
   <form method="post" id="editFormInner">
     <div class="tag-form-grid">
       <div class="form-group" style="margin-bottom:0;">
@@ -74,7 +82,15 @@
 </div>
 
 <script>
+function showCreate() {
+  document.getElementById('createForm').style.display = 'block';
+  document.getElementById('editForm').style.display = 'none';
+  document.getElementById('createForm').scrollIntoView({behavior:'smooth'});
+}
+function hideCreate() { document.getElementById('createForm').style.display = 'none'; }
+function hideEdit() { document.getElementById('editForm').style.display = 'none'; }
 function editTag(id, name, color) {
+  document.getElementById('createForm').style.display = 'none';
   document.getElementById('editForm').style.display = 'block';
   document.getElementById('editFormInner').action = '/tags/' + id + '/edit';
   document.getElementById('edit_name').value = name;
@@ -84,7 +100,6 @@ function editTag(id, name, color) {
 </script>
 
 <style>
-/* Tag form grid: desktop 2:1:auto, mobile full-width stacked */
 .tag-form-grid {
   display: grid;
   grid-template-columns: 2fr 1fr auto;
@@ -92,18 +107,76 @@ function editTag(id, name, color) {
   align-items: end;
 }
 
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.tag-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.tag-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.tag-card-swatch {
+  height: 6px;
+  transition: height 0.2s ease;
+}
+.tag-card:hover .tag-card-swatch {
+  height: 8px;
+}
+
+.tag-card-body {
+  padding: 14px 16px;
+  flex: 1;
+}
+
+.tag-card-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tag-card-color {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.tag-card-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px 14px;
+}
+
 @media (max-width: 430px) {
+  .tag-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
   .tag-form-grid {
     grid-template-columns: 1fr;
   }
   .tag-form-btn {
     width: 100%;
   }
-  .tag-card {
-    padding: 14px !important;
+  .tag-card-body {
+    padding: 12px;
   }
-  .tag-card .flex-between {
-    gap: 10px;
+  .tag-card-actions {
+    padding: 0 10px 10px;
   }
 }
 </style>
