@@ -21,9 +21,9 @@
   --border: #E8E0D5;
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-lg: 20px;
   --shadow-lg: 0 12px 48px rgba(0,0,0,0.08);
-  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --danger: #C53030;
 }
 
@@ -53,120 +53,385 @@ body {
   display: flex; align-items: center; justify-content: center;
   -webkit-font-smoothing: antialiased;
   transition: background var(--transition);
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(197,48,48,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 50%, rgba(184,134,11,0.03) 0%, transparent 60%);
+  overflow-x: hidden;
 }
 
-.login-container {
-  width: 100%; max-width: 420px;
-  padding: 0 20px;
-  animation: fadeIn 0.6s ease;
+/* ── Ink Wash Background ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 15% 20%, rgba(197,48,48,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 85% 75%, rgba(184,134,11,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 50%, rgba(45,106,79,0.03) 0%, transparent 60%);
+  animation: bgShift 20s ease-in-out infinite alternate;
 }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+@keyframes bgShift {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(ellipse 600px 400px at 15% 20%, rgba(229,83,75,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 85% 75%, rgba(218,165,32,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 50%, rgba(64,145,108,0.04) 0%, transparent 60%);
+}
+
+/* ── Decorative Brush Strokes ── */
+.brush-stroke {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  font-family: var(--font-display);
+  font-size: 18rem;
+  color: var(--text-primary);
+  line-height: 1;
+  user-select: none;
+}
+
+.brush-stroke.top-left {
+  top: -60px;
+  left: -40px;
+  transform: rotate(-15deg);
+  animation: floatStroke 8s ease-in-out infinite;
+}
+
+.brush-stroke.bottom-right {
+  bottom: -80px;
+  right: -50px;
+  transform: rotate(10deg);
+  font-size: 22rem;
+  animation: floatStroke 10s ease-in-out infinite reverse;
+}
+
+@keyframes floatStroke {
+  0%, 100% { transform: rotate(-15deg) translate(0, 0); }
+  25% { transform: rotate(-13deg) translate(8px, -6px); }
+  50% { transform: rotate(-17deg) translate(-4px, 4px); }
+  75% { transform: rotate(-14deg) translate(6px, 2px); }
+}
+
+@keyframes floatStrokeReverse {
+  0%, 100% { transform: rotate(10deg) translate(0, 0); }
+  25% { transform: rotate(12deg) translate(-6px, 4px); }
+  50% { transform: rotate(8deg) translate(4px, -6px); }
+  75% { transform: rotate(11deg) translate(-8px, -2px); }
+}
+
+/* ── Login Container ── */
+.login-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  padding: 0 24px;
+}
 
 .login-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 48px 40px;
+  padding: 52px 44px;
   box-shadow: var(--shadow-lg);
   transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+  animation: cardEnter 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-.login-brand {
-  text-align: center; margin-bottom: 36px;
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ── Top accent line ── */
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #D4A017, var(--accent));
+  opacity: 0.6;
+}
+
+/* ── Brand ── */
+.login-brand {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.login-brand .seal-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
 .login-brand .seal {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 56px; height: 56px;
+  width: 64px;
+  height: 64px;
   background: var(--accent);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 1.5rem; font-weight: 700;
-  border-radius: 50%;
-  margin-bottom: 16px;
-  transform: rotate(-5deg);
-}
-.login-brand h1 {
-  font-family: var(--font-display);
-  font-size: 1.5rem; font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.08em;
-}
-.login-brand p {
-  margin-top: 6px; font-size: 0.85rem; color: var(--text-muted);
+  font-size: 1.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transform: rotate(-3deg);
+  position: relative;
+  animation: sealStamp 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) 0.3s both;
+  box-shadow: 0 4px 20px rgba(197,48,48,0.25);
 }
 
-.form-group { margin-bottom: 20px; }
-.form-label {
-  display: block; margin-bottom: 6px;
-  font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);
+@keyframes sealStamp {
+  from { transform: rotate(-3deg) scale(0); opacity: 0; }
+  to { transform: rotate(-3deg) scale(1); opacity: 1; }
 }
+
+.login-brand .seal-ring {
+  position: absolute;
+  inset: -6px;
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  opacity: 0.3;
+  transform: rotate(0deg);
+  animation: ringPulse 3s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+  0%, 100% { opacity: 0.2; transform: rotate(0deg) scale(1); }
+  50% { opacity: 0.4; transform: rotate(2deg) scale(1.04); }
+}
+
+.login-brand h1 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.12em;
+  animation: fadeUp 0.5s ease 0.4s both;
+}
+.login-brand p {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  animation: fadeUp 0.5s ease 0.5s both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Form ── */
+.login-form {
+  animation: fadeUp 0.5s ease 0.55s both;
+}
+
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
 .form-input {
-  width: 100%; padding: 12px 16px;
-  font-family: var(--font-body); font-size: 0.95rem;
+  width: 100%;
+  padding: 13px 16px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
   color: var(--text-primary);
   background: var(--bg-primary);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   outline: none;
   transition: all var(--transition);
 }
+
+.form-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 .form-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-subtle);
+  box-shadow: 0 0 0 4px var(--accent-subtle);
   background: var(--bg-surface);
 }
 
+.form-input:focus::placeholder {
+  opacity: 0.3;
+}
+
+/* ── Submit Button ── */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 100%; padding: 12px 24px;
-  font-family: var(--font-display); font-size: 1rem; font-weight: 600;
-  border: none; border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 14px 24px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  background: var(--accent); color: #fff;
+  background: var(--accent);
+  color: #fff;
+  letter-spacing: 0.08em;
   transition: all var(--transition);
-  letter-spacing: 0.05em;
+  position: relative;
+  overflow: hidden;
 }
-.btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(197,48,48,0.25); }
 
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(197,48,48,0.3);
+}
+
+.btn:hover::after {
+  transform: translateX(100%);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* ── Error Flash ── */
 .flash-error {
-  padding: 12px 16px; border-radius: var(--radius-sm);
-  font-size: 0.85rem; margin-bottom: 20px;
-  background: rgba(197,48,48,0.1); color: var(--danger);
+  padding: 13px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 22px;
+  background: rgba(197,48,48,0.08);
+  color: var(--danger);
   border: 1px solid rgba(197,48,48,0.2);
-  animation: slideDown 0.3s ease;
+  animation: shake 0.5s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
+.flash-error::before {
+  content: '⚠';
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* ── Theme Toggle ── */
 .theme-toggle-login {
-  position: fixed; top: 20px; right: 20px;
-  width: 38px; height: 38px;
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border);
   border-radius: 50%;
   background: var(--bg-surface);
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem;
-  transition: all var(--transition);
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-secondary);
+  transition: all var(--transition);
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
 }
-.theme-toggle-login:hover { border-color: var(--accent); color: var(--accent); }
 
+.theme-toggle-login:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: rotate(15deg);
+}
+
+/* ── Footer hint ── */
+.login-footer {
+  text-align: center;
+  margin-top: 28px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  animation: fadeUp 0.5s ease 0.65s both;
+}
+
+/* ── Responsive ── */
 @media (max-width: 480px) {
-  .login-card { padding: 32px 24px; }
+  .login-card {
+    padding: 40px 28px;
+    border-radius: var(--radius-md);
+  }
+  .login-brand h1 {
+    font-size: 1.4rem;
+  }
+  .login-brand .seal {
+    width: 56px;
+    height: 56px;
+    font-size: 1.4rem;
+  }
+  .form-input {
+    padding: 12px 14px;
+  }
+  .btn {
+    padding: 13px 20px;
+  }
+  .brush-stroke {
+    display: none;
+  }
 }
 </style>
 </head>
 <body>
 
+<!-- Decorative Brush Strokes -->
+<div class="brush-stroke top-left">墨</div>
+<div class="brush-stroke bottom-right">斋</div>
+
+<!-- Theme Toggle -->
 <button class="theme-toggle-login" id="themeToggle" title="切换主题">☀️</button>
 
-<div class="login-container">
+<!-- Login Card -->
+<div class="login-wrapper">
   <div class="login-card">
     <div class="login-brand">
-      <div class="seal">墨</div>
+      <div class="seal-wrap">
+        <div class="seal-ring"></div>
+        <div class="seal">墨</div>
+      </div>
       <h1>墨斋</h1>
       <p>私人书阁 · 静心阅读</p>
     </div>
@@ -175,7 +440,7 @@ body {
     <div class="flash-error">{{ error }}</div>
     {% endif %}
 
-    <form method="post">
+    <form method="post" class="login-form">
       <div class="form-group">
         <label class="form-label" for="username">用户名</label>
         <input class="form-input" type="text" id="username" name="username" placeholder="请输入用户名" autocomplete="username" required autofocus>
@@ -187,17 +452,19 @@ body {
       <button type="submit" class="btn">进入书阁</button>
     </form>
   </div>
+
+  <div class="login-footer">墨斋 · 私人书阁管理系统</div>
 </div>
 
 <script>
 (function() {
-  const html = document.documentElement;
-  const toggle = document.getElementById('themeToggle');
-  const saved = localStorage.getItem('theme') || 'light';
+  var html = document.documentElement;
+  var toggle = document.getElementById('themeToggle');
+  var saved = localStorage.getItem('theme') || 'light';
   html.setAttribute('data-theme', saved);
   toggle.textContent = saved === 'dark' ? '🌙' : '☀️';
-  toggle.addEventListener('click', () => {
-    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  toggle.addEventListener('click', function() {
+    var next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
     toggle.textContent = next === 'dark' ? '🌙' : '☀️';
     localStorage.setItem('theme', next);

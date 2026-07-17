@@ -8,12 +8,16 @@
       <h1>分类管理</h1>
       <p>管理小说分类，共 {{ categories|length }} 个分类</p>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="document.getElementById('createForm').style.display='block'; this.style.display='none';">新建分类</button>
+    <button class="btn btn-primary btn-sm" onclick="showCreate()">新建分类</button>
   </div>
 </div>
 
+<!-- Create Form -->
 <div class="card mb-3" id="createForm" style="display:none;">
-  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">新建分类</h3>
+  <div class="flex-between mb-2">
+    <h3 style="font-family:var(--font-display); font-size:1rem; color:var(--text-secondary);">新建分类</h3>
+    <button onclick="hideCreate()" class="btn btn-secondary btn-xs" style="min-width:32px; min-height:32px; padding:0;">✕</button>
+  </div>
   <form method="post" action="{{ url_for('categories.create') }}">
     <div class="cat-form-grid">
       <div class="form-group" style="margin-bottom:0;">
@@ -34,26 +38,33 @@
 </div>
 
 {% if categories %}
-<!-- Desktop: table -->
+<!-- Desktop: Table -->
 <div class="table-wrap cat-table-desktop">
   <table>
     <thead>
       <tr>
+        <th style="width:50px;">#</th>
         <th>名称</th>
         <th>描述</th>
-        <th>排序</th>
-        <th style="width:200px;">操作</th>
+        <th style="width:80px;">排序</th>
+        <th style="width:180px;">操作</th>
       </tr>
     </thead>
     <tbody>
       {% for cat in categories %}
       <tr>
-        <td><strong>{{ cat.name }}</strong></td>
-        <td class="text-muted">{{ cat.description or '-' }}</td>
-        <td>{{ cat.sort_order }}</td>
+        <td class="text-muted number-column">{{ loop.index }}</td>
         <td>
-          <div style="display:flex; gap:4px;">
-            <button class="btn btn-secondary btn-xs" onclick="editCat({{ cat.id }}, '{{ cat.name }}', '{{ cat.description or '' }}', {{ cat.sort_order }})">编辑</button>
+          <span style="display:inline-flex; align-items:center; gap:10px;">
+            <span style="width:8px; height:8px; border-radius:2px; background:var(--accent); flex-shrink:0; opacity:{{ 0.3 + 0.7 * (loop.index / categories|length) }};"></span>
+            <strong>{{ cat.name }}</strong>
+          </span>
+        </td>
+        <td class="text-muted">{{ cat.description or '—' }}</td>
+        <td class="text-muted number-column">{{ cat.sort_order }}</td>
+        <td>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-xs" onclick="editCat({{ cat.id }}, '{{ cat.name|e }}', '{{ cat.description|e or '' }}', {{ cat.sort_order }})">编辑</button>
             <form method="post" action="{{ url_for('categories.delete', id=cat.id) }}" style="display:inline;" onsubmit="return confirm('确定删除分类「{{ cat.name }}」？')">
               <button type="submit" class="btn btn-danger btn-xs">删除</button>
             </form>
@@ -64,24 +75,21 @@
     </tbody>
   </table>
 </div>
-<!-- Mobile: card list -->
+
+<!-- Mobile: Card list -->
 <div class="cat-card-list">
   {% for cat in categories %}
   <div class="card cat-card-item">
-    <div class="cat-card-row">
-      <span class="cat-card-key">名称</span>
-      <span class="cat-card-val"><strong>{{ cat.name }}</strong></span>
+    <div class="cat-card-header">
+      <span class="cat-card-dot" style="background:var(--accent); opacity:{{ 0.3 + 0.7 * (loop.index / categories|length) }};"></span>
+      <strong>{{ cat.name }}</strong>
+      <span class="badge badge-outline" style="margin-left:auto;">#{{ cat.sort_order }}</span>
     </div>
-    <div class="cat-card-row">
-      <span class="cat-card-key">描述</span>
-      <span class="cat-card-val text-muted">{{ cat.description or '-' }}</span>
-    </div>
-    <div class="cat-card-row">
-      <span class="cat-card-key">排序</span>
-      <span class="cat-card-val">{{ cat.sort_order }}</span>
+    <div class="cat-card-body">
+      <span class="text-muted">{{ cat.description or '暂无描述' }}</span>
     </div>
     <div class="cat-card-actions">
-      <button class="btn btn-secondary btn-xs" style="min-height:44px;" onclick="editCat({{ cat.id }}, '{{ cat.name }}', '{{ cat.description or '' }}', {{ cat.sort_order }})">编辑</button>
+      <button class="btn btn-secondary btn-xs" style="min-height:44px;" onclick="editCat({{ cat.id }}, '{{ cat.name|e }}', '{{ cat.description|e or '' }}', {{ cat.sort_order }})">编辑</button>
       <form method="post" action="{{ url_for('categories.delete', id=cat.id) }}" style="display:inline;" onsubmit="return confirm('确定删除分类「{{ cat.name }}」？')">
         <button type="submit" class="btn btn-danger btn-xs" style="min-height:44px;">删除</button>
       </form>
@@ -94,11 +102,16 @@
   <div class="icon">📁</div>
   <h3>暂无分类</h3>
   <p>创建分类来组织你的小说</p>
+  <button class="btn btn-primary mt-2" onclick="showCreate()">创建第一个分类</button>
 </div>
 {% endif %}
 
+<!-- Edit Form -->
 <div class="card mt-3" id="editForm" style="display:none;">
-  <h3 style="font-family:var(--font-display); font-size:1rem; margin-bottom:16px; color:var(--text-secondary);">编辑分类</h3>
+  <div class="flex-between mb-2">
+    <h3 style="font-family:var(--font-display); font-size:1rem; color:var(--text-secondary);">编辑分类</h3>
+    <button onclick="hideEdit()" class="btn btn-secondary btn-xs" style="min-width:32px; min-height:32px; padding:0;">✕</button>
+  </div>
   <form method="post" id="editFormInner">
     <div class="cat-form-grid">
       <div class="form-group" style="margin-bottom:0;">
@@ -119,7 +132,19 @@
 </div>
 
 <script>
+function showCreate() {
+  document.getElementById('createForm').style.display = 'block';
+  document.getElementById('editForm').style.display = 'none';
+  document.getElementById('createForm').scrollIntoView({behavior:'smooth'});
+}
+function hideCreate() {
+  document.getElementById('createForm').style.display = 'none';
+}
+function hideEdit() {
+  document.getElementById('editForm').style.display = 'none';
+}
 function editCat(id, name, desc, order) {
+  document.getElementById('createForm').style.display = 'none';
   document.getElementById('editForm').style.display = 'block';
   document.getElementById('editFormInner').action = '/categories/' + id + '/edit';
   document.getElementById('edit_name').value = name;
@@ -130,72 +155,46 @@ function editCat(id, name, desc, order) {
 </script>
 
 <style>
-/* Form grid: desktop 2:1:1:auto, mobile full-width stacked */
 .cat-form-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr auto;
   gap: 12px;
   align-items: end;
 }
-
-/* Card list: hidden on desktop, shown on mobile */
-.cat-card-list {
-  display: none;
-}
-
+.cat-card-list { display: none; }
 .cat-card-item {
   padding: 16px;
   margin-bottom: 12px;
 }
-
-.cat-card-row {
+.cat-card-header {
   display: flex;
-  gap: 12px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-light);
   align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
 }
-.cat-card-row:last-of-type {
-  border-bottom: none;
-}
-
-.cat-card-key {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  min-width: 48px;
+.cat-card-dot {
+  width: 10px; height: 10px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
-
-.cat-card-val {
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  min-width: 0;
-  word-break: break-word;
+.cat-card-body {
+  font-size: 0.85rem;
+  padding: 6px 0;
+  margin-bottom: 4px;
 }
-
 .cat-card-actions {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border-light);
   flex-wrap: wrap;
 }
-
 @media (max-width: 430px) {
-  .cat-table-desktop {
-    display: none;
-  }
-  .cat-card-list {
-    display: block;
-  }
-  .cat-form-grid {
-    grid-template-columns: 1fr;
-  }
-  .cat-form-btn {
-    width: 100%;
-  }
+  .cat-table-desktop { display: none; }
+  .cat-card-list { display: block; }
+  .cat-form-grid { grid-template-columns: 1fr; }
+  .cat-form-btn { width: 100%; }
 }
 </style>
 
