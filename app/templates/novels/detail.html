@@ -653,6 +653,7 @@
       </button>
     </form>
     <a href="{{ url_for('novels.rules_list', id=novel.id) }}" class="btn btn-secondary">规则</a>
+    <button type="button" class="btn btn-secondary" id="btnEdit">修改</button>
     <form method="post" action="{{ url_for('novels.delete', id=novel.id) }}" id="deleteForm">
       <button type="button" class="btn btn-delete" id="btnDelete">删除</button>
     </form>
@@ -805,6 +806,46 @@
   </div>
 </div>
 
+<!-- ====== Edit Modal ====== -->
+<div class="tag-modal-overlay" id="editModalOverlay">
+  <div class="tag-modal">
+    <div class="tag-modal-header">修改小说信息</div>
+    <div class="tag-modal-body" style="flex-direction:column; gap:14px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="editTitle">标题</label>
+        <input class="form-input" type="text" id="editTitle" name="edit_title" value="{{ novel.title }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="editAuthor">作者</label>
+        <input class="form-input" type="text" id="editAuthor" name="edit_author" value="{{ novel.author or '' }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">分类</label>
+        {% if categories %}
+        <div style="display:flex; flex-wrap:wrap; gap:6px; padding-top:4px;">
+          {% for cat in categories %}
+          <label class="tag-chip" style="background:var(--bg-elevated); color:var(--text-primary); border-color:var(--border);">
+            <input type="radio" name="edit_category_id" value="{{ cat.id }}" {% if novel.category_id == cat.id %}checked{% endif %}>
+            {{ cat.name }}
+          </label>
+          {% endfor %}
+          <label class="tag-chip" style="background:var(--bg-elevated); color:var(--text-muted); border-color:var(--border);">
+            <input type="radio" name="edit_category_id" value="" {% if not novel.category_id %}checked{% endif %}>
+            无分类
+          </label>
+        </div>
+        {% else %}
+        <p class="text-muted" style="font-size:0.85rem;">暂无分类</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="tag-modal-footer">
+      <button type="button" class="btn btn-secondary" id="btnEditCancel">取消</button>
+      <button type="button" class="btn btn-primary" id="btnEditConfirm">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // --- Tag Edit Modal ---
 (function() {
@@ -844,6 +885,62 @@
       input.value = id;
       form.appendChild(input);
     });
+
+    document.body.appendChild(form);
+    form.submit();
+  });
+})();
+
+// --- Edit Modal ---
+(function() {
+  var overlay = document.getElementById('editModalOverlay');
+  var btnEdit = document.getElementById('btnEdit');
+  var btnCancel = document.getElementById('btnEditCancel');
+  var btnConfirm = document.getElementById('btnEditConfirm');
+
+  btnEdit.addEventListener('click', function() {
+    overlay.classList.add('active');
+  });
+
+  function closeModal() {
+    overlay.classList.remove('active');
+  }
+
+  btnCancel.addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeModal();
+  });
+
+  btnConfirm.addEventListener('click', function() {
+    var title = document.getElementById('editTitle').value;
+    var author = document.getElementById('editAuthor').value;
+    var catRadio = document.querySelector('input[name="edit_category_id"]:checked');
+    var categoryId = catRadio ? catRadio.value : '';
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("novels.edit", id=novel.id) }}';
+    form.style.display = 'none';
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'hidden';
+    titleInput.name = 'title';
+    titleInput.value = title;
+    form.appendChild(titleInput);
+
+    var authorInput = document.createElement('input');
+    authorInput.type = 'hidden';
+    authorInput.name = 'author';
+    authorInput.value = author;
+    form.appendChild(authorInput);
+
+    if (categoryId) {
+      var catInput = document.createElement('input');
+      catInput.type = 'hidden';
+      catInput.name = 'category_id';
+      catInput.value = categoryId;
+      form.appendChild(catInput);
+    }
 
     document.body.appendChild(form);
     form.submit();

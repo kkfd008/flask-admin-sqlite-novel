@@ -320,7 +320,7 @@ class TestStep3DeleteMerge:
         assert '剑来' in html, f'标题应默认显示文件名，实际: {html[:500]}'
 
     def test_step4_shows_categories_as_radio(self, client, app):
-        """分类全部显示为单选框，不能为空，必选"""
+        """分类全部显示为单选框，非必选"""
         cat_id = None
         with app.app_context():
             from app.models import db, User, ChapterRule, Category
@@ -342,11 +342,14 @@ class TestStep3DeleteMerge:
         assert response.status_code == 200
         html = response.data.decode('utf-8')
 
-        # 分类应以 radio 形式显示
+        # 分类应以 radio 形式显示，非必选
         assert '武侠' in html
         assert f'value="{cat_id}"' in html, f'radio 应有 value="{cat_id}"'
         assert 'type="radio"' in html, '分类应为 radio 单选框'
-        assert 'required' in html, '分类应为必选'
+        import re as _re
+        cat_input = _re.search(r'<input[^>]*name="category_id"[^>]*>', html)
+        assert cat_input is not None, '应有 category_id radio'
+        assert 'required' not in cat_input.group(), '分类 radio 不应为必选'
 
     def test_step4_submit_creates_novel(self, client, app):
         """提交 step4 应成功创建小说，不报 AttributeError"""

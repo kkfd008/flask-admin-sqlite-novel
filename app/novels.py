@@ -41,11 +41,13 @@ def detail(id):
     novel = Novel.query.get_or_404(id)
     chapters = Chapter.query.filter_by(novel_id=id).order_by(Chapter.order).all()
     all_tags = Tag.query.all()
+    categories = Category.query.order_by(Category.sort_order).all()
     user_id = session.get('user_id', 1)
     my_rating = Rating.query.filter_by(user_id=user_id, novel_id=id).first()
     is_favorited = Favorite.query.filter_by(user_id=user_id, novel_id=id).first() is not None
     return render_template('novels/detail.html', novel=novel, chapters=chapters,
-                          all_tags=all_tags, my_rating=my_rating, is_favorited=is_favorited)
+                          all_tags=all_tags, my_rating=my_rating, is_favorited=is_favorited,
+                          categories=categories)
 
 
 @novels_bp.route('/<int:id>/chapter')
@@ -64,6 +66,18 @@ def chapter_directory(id):
 
     return render_template('novels/chapters.html', novel=novel, pagination=pagination,
                           per_page=per_page, page=page)
+
+
+@novels_bp.route('/<int:id>/edit', methods=['POST'])
+@login_required
+def edit(id):
+    novel = Novel.query.get_or_404(id)
+    novel.title = request.form.get('title', novel.title)
+    novel.author = request.form.get('author', '') or None
+    category_id = request.form.get('category_id')
+    novel.category_id = int(category_id) if category_id else None
+    db.session.commit()
+    return redirect(url_for('novels.detail', id=id))
 
 
 @novels_bp.route('/<int:id>/delete', methods=['POST'])

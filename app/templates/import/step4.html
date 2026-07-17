@@ -148,7 +148,7 @@
       <div class="category-list">
         {% for cat in categories %}
         <label class="category-item">
-          <input type="radio" name="category_id" value="{{ cat.id }}" required style="accent-color:var(--accent);">
+          <input type="radio" name="category_id" value="{{ cat.id }}" style="accent-color:var(--accent);">
           {{ cat.name }}
         </label>
         {% endfor %}
