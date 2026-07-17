@@ -49,12 +49,12 @@ def collect_txt_files(source_dir, depth, ext='.txt'):
         for entry in entries:
             full = os.path.join(dirpath, entry)
             if os.path.isfile(full) and entry.lower().endswith(ext.lower()):
-                # 计算相对于源目录的上级目录名
+                # 保留源文件所在的最后一级目录名
                 parent_dir = os.path.dirname(full)
                 if parent_dir == source_dir:
                     subdir = ''
                 else:
-                    subdir = os.path.relpath(parent_dir, source_dir)
+                    subdir = os.path.basename(parent_dir)
                 txt_files.append((full, subdir))
             elif os.path.isdir(full) and current_depth < depth:
                 walk(full, current_depth + 1)
