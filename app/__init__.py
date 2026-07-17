@@ -1,12 +1,30 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_admin import Admin
+from flask_admin import Admin, AdminIndexView, expose
 from flask_session import Session
 import os
 import sqlite3
 from flask_admin.contrib.sqla import ModelView
 
 db = SQLAlchemy()
+
+
+class AdminDashboardView(AdminIndexView):
+    @expose('/')
+    def index(self):
+        from app.models import User, Novel, Chapter, Category, Tag, Favorite, Rating, ChapterRule, NovelChapterRule
+        stats = {
+            'users': User.query.count(),
+            'novels': Novel.query.count(),
+            'chapters': Chapter.query.count(),
+            'categories': Category.query.count(),
+            'tags': Tag.query.count(),
+            'favorites': Favorite.query.count(),
+            'ratings': Rating.query.count(),
+            'chapter_rules': ChapterRule.query.count(),
+            'novel_chapter_rules': NovelChapterRule.query.count(),
+        }
+        return self.render('admin/index.html', stats=stats)
 
 
 def _migrate_db(app):
@@ -106,7 +124,11 @@ def create_app(config=None):
     app.register_blueprint(editor_bp)
     app.register_blueprint(importer_bp)
 
-    admin = Admin(app, name='Novel Admin')
+    admin = Admin(
+        app,
+        name='墨斋 · 管理',
+        index_view=AdminDashboardView(),
+    )
 
     from app.models import User, Category, Novel, Chapter, ChapterRule, NovelChapterRule, Tag, Favorite, Rating, ReadingProgress, Bookmark, Upload
 
