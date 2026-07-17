@@ -2,12 +2,11 @@
 {% block title %}上传列表 · 墨斋{% endblock %}
 
 {% block content %}
-<div class="page-header flex-between">
+<div class="page-header">
   <div>
     <h1>小说上传列表</h1>
     <p>管理已上传的小说文件</p>
   </div>
-  <a href="{{ url_for('importer.step1') }}" class="btn btn-primary">上传新小说</a>
 </div>
 
 {% if pagination.items %}
@@ -41,7 +40,7 @@
           {% if upload.novel_id %}
           <a href="{{ url_for('novels.detail', id=upload.novel_id) }}" class="btn btn-sm btn-primary">阅读</a>
           {% else %}
-          <a href="{{ url_for('importer.reimport', upload_id=upload.id) }}" class="btn btn-sm btn-secondary">导入书库</a>
+          <span class="text-muted" style="font-size:0.8rem;">未导入</span>
           {% endif %}
           <a href="{{ url_for('novels.download_upload', upload_id=upload.id) }}" class="btn btn-sm btn-secondary">下载</a>
         </td>
@@ -69,8 +68,7 @@
 <div class="empty-state">
   <div class="icon">📂</div>
   <h3>暂无上传记录</h3>
-  <p class="text-muted">点击下方按钮上传您的第一本小说</p>
-  <a href="{{ url_for('importer.step1') }}" class="btn btn-primary mt-2">上传小说</a>
+  <p class="text-muted">通过脚本或前台导入小说</p>
 </div>
 {% endif %}
 {% endblock %}

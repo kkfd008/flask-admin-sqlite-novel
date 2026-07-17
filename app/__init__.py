@@ -130,11 +130,7 @@ def create_app(config=None):
         index_view=AdminDashboardView(),
     )
 
-    from app.models import User, Category, Novel, Chapter, ChapterRule, NovelChapterRule, Tag, Favorite, Rating, ReadingProgress, Bookmark, Upload
-
-    @app.context_processor
-    def inject_has_uploads():
-        return {'has_uploads': db.session.query(Upload.query.exists()).scalar()}
+    from app.models import User, Category, Novel, Chapter, ChapterRule, NovelChapterRule, Tag, Favorite, Rating, ReadingProgress, Bookmark
 
     admin.add_view(AuthModelView(User, db.session))
     admin.add_view(AuthModelView(Category, db.session))

@@ -615,7 +615,6 @@ tr:hover td { background: var(--accent-subtle); }
     <a href="{{ url_for('categories.list') }}" class="{% if request.endpoint == 'categories.list' %}active{% endif %}">分类</a>
     <a href="{{ url_for('tags.list') }}" class="{% if request.endpoint == 'tags.list' %}active{% endif %}">标签</a>
     <a href="{{ url_for('rules.list') }}" class="{% if request.endpoint == 'rules.list' %}active{% endif %}">规则</a>
-    <a href="{{ url_for('novels.uploads') if has_uploads else url_for('importer.step1') }}" class="{% if request.endpoint and ('importer' in request.endpoint or 'novels.uploads' in request.endpoint) %}active{% endif %}">导入</a>
     <a href="{{ url_for('search.search') }}" class="{% if request.endpoint == 'search.search' %}active{% endif %}">搜索</a>
     <a href="{{ url_for('admin.index') }}" class="{% if request.endpoint and 'admin' in request.endpoint %}active{% endif %}">管理</a>
   </div>
@@ -635,7 +634,6 @@ tr:hover td { background: var(--accent-subtle); }
   <a href="{{ url_for('categories.list') }}">分类管理</a>
   <a href="{{ url_for('tags.list') }}">标签管理</a>
   <a href="{{ url_for('rules.list') }}">章节规则</a>
-  <a href="{{ url_for('novels.uploads') if has_uploads else url_for('importer.step1') }}">导入小说</a>
   <a href="{{ url_for('search.search') }}">全文搜索</a>
   <a href="{{ url_for('auth.logout') }}">退出登录</a>
 </div>
@@ -650,10 +648,6 @@ tr:hover td { background: var(--accent-subtle); }
     <a href="{{ url_for('search.search') }}" class="bottom-tab {% if request.endpoint == 'search.search' %}active{% endif %}">
       <span class="bottom-tab-icon">🔍</span>
       <span class="bottom-tab-label">搜索</span>
-    </a>
-    <a href="{{ url_for('novels.uploads') if has_uploads else url_for('importer.step1') }}" class="bottom-tab primary">
-      <span class="bottom-tab-icon">+</span>
-      <span class="bottom-tab-label">导入</span>
     </a>
     <a href="{{ url_for('favorites.list') }}" class="bottom-tab {% if request.endpoint == 'favorites.list' %}active{% endif %}">
       <span class="bottom-tab-icon">⭐</span>
