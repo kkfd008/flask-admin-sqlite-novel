@@ -1,7 +1,5 @@
 import os
-import re
 import shutil
-import chardet
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, session
 from app.models import db, Novel, Chapter, ChapterRule, Category, Upload, NovelChapterRule, Favorite, Rating, ReadingProgress, Bookmark
@@ -113,21 +111,7 @@ def step1():
 
         session['import_original_filename'] = raw_name
 
-        raw_data = open(filepath, 'rb').read()
-        detected = chardet.detect(raw_data)
-        encoding = detected.get('encoding', 'utf-8')
-
-        with open(filepath, 'r', encoding=encoding, errors='replace') as f:
-            content = f.read()
-
-        if content and content[0] == '\ufeff':
-            content = content[1:]
-
-        utf8_path = filepath + '.utf8'
-        with open(utf8_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-
-        session['import_filepath'] = utf8_path
+        session['import_filepath'] = filepath
         session['import_filename'] = raw_name
 
         # 清理临时文件
@@ -151,24 +135,9 @@ def reimport(upload_id):
     if not os.path.exists(filepath):
         return redirect(url_for('importer.step1'))
 
-    # 读取文件并创建 utf8 副本
-    raw_data = open(filepath, 'rb').read()
-    detected = chardet.detect(raw_data)
-    encoding = detected.get('encoding', 'utf-8')
-
-    with open(filepath, 'r', encoding=encoding, errors='replace') as f:
-        content = f.read()
-
-    if content and content[0] == '\ufeff':
-        content = content[1:]
-
-    utf8_path = filepath + '.utf8'
-    with open(utf8_path, 'w', encoding='utf-8') as f:
-        f.write(content)
-
     raw_name = os.path.splitext(os.path.basename(upload.file_path))[0]
 
-    session['import_filepath'] = utf8_path
+    session['import_filepath'] = filepath
     session['import_filename'] = raw_name
     session['import_original_filename'] = raw_name
     session['import_upload_id'] = upload.id

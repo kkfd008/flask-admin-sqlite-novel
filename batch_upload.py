@@ -11,7 +11,7 @@
     --sqlite-db PATH  指定 SQLite 数据库文件路径，默认 instance/novel.db
     -t, --type EXT    指定上传文件后缀，默认 .txt（如 -t .epub）
 
-    上传流程与 web 端一致：检测编码 → 转换为 UTF-8 → 保存 .utf8 副本 → 写入上传表。
+    上传流程与 web 端一致：直接复制文件 → 写入上传表。
     路径格式: uploads/YYMMDD/源文件所在上级目录名/文件名.txt
 
 示例:
@@ -22,7 +22,6 @@ import os
 import sys
 import shutil
 import argparse
-import chardet
 from datetime import datetime
 
 # 确保项目根目录在 sys.path 中
@@ -62,33 +61,6 @@ def collect_txt_files(source_dir, depth, ext='.txt'):
 
     walk(source_dir, 1)
     return txt_files
-
-
-def convert_to_utf8(src_path, dest_dir):
-    """检测编码并转换为 UTF-8 保存。
-
-    返回: (原文件路径, utf8文件路径, 文件大小)
-    """
-    raw_data = open(src_path, 'rb').read()
-    detected = chardet.detect(raw_data)
-    encoding = detected.get('encoding', 'utf-8')
-
-    with open(src_path, 'r', encoding=encoding, errors='replace') as f:
-        content = f.read()
-
-    if content and content[0] == '\ufeff':
-        content = content[1:]
-
-    filename = os.path.basename(src_path)
-    orig_path = os.path.join(dest_dir, filename)
-    utf8_path = orig_path + '.utf8'
-
-    os.makedirs(dest_dir, exist_ok=True)
-    shutil.copy2(src_path, orig_path)
-    with open(utf8_path, 'w', encoding='utf-8') as f:
-        f.write(content)
-
-    return orig_path, utf8_path, os.path.getsize(orig_path)
 
 
 def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=None, ext='.txt'):
@@ -141,19 +113,8 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                 # 覆盖：保持原路径，更新文件内容和元数据
                 filepath = os.path.join(BASE_DIR, existing.file_path)
                 try:
-                    # 转换 UTF-8 并覆盖
-                    raw_data = open(src_path, 'rb').read()
-                    detected = chardet.detect(raw_data)
-                    encoding = detected.get('encoding', 'utf-8')
-                    with open(src_path, 'r', encoding=encoding, errors='replace') as f:
-                        content = f.read()
-                    if content and content[0] == '\ufeff':
-                        content = content[1:]
                     shutil.copy2(src_path, filepath)
-                    utf8_path = filepath + '.utf8'
-                    with open(utf8_path, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                except (OSError, UnicodeError) as e:
+                except OSError as e:
                     failed.append((filename, f'文件处理失败: {e}'))
                     print(f'  ✗ {filename} — 处理失败')
                     continue
@@ -177,14 +138,16 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                 dest_dir = os.path.join(UPLOAD_FOLDER, date_dir)
                 rel_dir = os.path.join('uploads', date_dir)
 
+            os.makedirs(dest_dir, exist_ok=True)
+            dest_path = os.path.join(dest_dir, saved_filename)
             try:
-                orig_path, utf8_path, file_size = convert_to_utf8(src_path, dest_dir)
-            except (OSError, UnicodeError) as e:
-                failed.append((filename, f'文件处理失败: {e}'))
-                print(f'  ✗ {filename} — 处理失败')
+                shutil.copy2(src_path, dest_path)
+            except OSError as e:
+                failed.append((filename, f'文件复制失败: {e}'))
+                print(f'  ✗ {filename} — 复制失败')
                 continue
 
-            # 记录 .utf8 路径到上传表（与 web 端 importer 一致）
+            file_size = os.path.getsize(dest_path)
             rel_path = os.path.join(rel_dir, saved_filename)
             upload = Upload(
                 title=raw_name,
