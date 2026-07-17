@@ -195,90 +195,91 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
         print(f'开始导入书库 ({"生成章节，无内容" if last_step == 3 else "完整导入"}):')
         print(f'{"=" * 50}')
 
-        # 初始化默认规则（确保 get_best_pattern 可用）
-        init_default_rules()
-
         import_success = []
         import_failed = []
 
-        for upload_id, filepath, raw_name in uploaded:
-            try:
-                # 读取文件内容
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    content = f.read()
+        with app.app_context():
+            # 初始化默认规则（确保 get_best_pattern 可用）
+            init_default_rules()
 
-                if not content.strip():
-                    import_failed.append((raw_name, '文件内容为空'))
-                    print(f'  ✗ {raw_name} — 文件内容为空')
-                    continue
+            for upload_id, filepath, raw_name in uploaded:
+                try:
+                    # 读取文件内容
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        content = f.read()
 
-                # 自动检测最佳章节匹配规则（使用系统规则）
-                best_rule, best_pattern, match_count = get_best_pattern(content)
+                    if not content.strip():
+                        import_failed.append((raw_name, '文件内容为空'))
+                        print(f'  ✗ {raw_name} — 文件内容为空')
+                        continue
 
-                # 分割章节
-                if best_pattern is None:
-                    chapters = split_by_fixed_length(content)
-                else:
-                    chapters = split_chapters(content, best_pattern)
+                    # 自动检测最佳章节匹配规则（使用系统规则）
+                    best_rule, best_pattern, match_count = get_best_pattern(content)
 
-                if not chapters:
-                    import_failed.append((raw_name, '未识别到章节'))
-                    print(f'  ✗ {raw_name} — 未识别到章节')
-                    continue
-
-                # 创建 Novel
-                novel = Novel(
-                    title=raw_name,
-                    author='',
-                    category_id=None,
-                )
-                db.session.add(novel)
-                db.session.commit()
-
-                # 创建 Chapter
-                chapter_order = 0
-                total_word_count = 0
-                for ch_title, ch_content in chapters:
-                    chapter_order += 1
-                    if last_step == 3:
-                        # 不保存内容
-                        ch = Chapter(
-                            novel_id=novel.id,
-                            title=ch_title,
-                            content='',
-                            order=chapter_order,
-                            word_count=len(ch_content),
-                        )
+                    # 分割章节
+                    if best_pattern is None:
+                        chapters = split_by_fixed_length(content)
                     else:
-                        # 完整导入
-                        ch = Chapter(
-                            novel_id=novel.id,
-                            title=ch_title,
-                            content=ch_content,
-                            order=chapter_order,
-                            word_count=len(ch_content),
-                        )
-                    total_word_count += len(ch_content)
-                    db.session.add(ch)
+                        chapters = split_chapters(content, best_pattern)
 
-                novel.chapter_count = chapter_order
-                novel.word_count = total_word_count
-                db.session.commit()
+                    if not chapters:
+                        import_failed.append((raw_name, '未识别到章节'))
+                        print(f'  ✗ {raw_name} — 未识别到章节')
+                        continue
 
-                # 更新 Upload 的 novel_id
-                upload = Upload.query.get(upload_id)
-                if upload:
-                    upload.novel_id = novel.id
-                    upload.last_import_at = datetime.now()
+                    # 创建 Novel
+                    novel = Novel(
+                        title=raw_name,
+                        author='',
+                        category_id=None,
+                    )
+                    db.session.add(novel)
                     db.session.commit()
 
-                import_success.append((raw_name, chapter_order, best_rule.name if best_rule else '固定长度'))
-                print(f'  ✓ {raw_name} → {chapter_order} 章 (规则: {best_rule.name if best_rule else "固定长度"})')
+                    # 创建 Chapter
+                    chapter_order = 0
+                    total_word_count = 0
+                    for ch_title, ch_content in chapters:
+                        chapter_order += 1
+                        if last_step == 3:
+                            # 不保存内容
+                            ch = Chapter(
+                                novel_id=novel.id,
+                                title=ch_title,
+                                content='',
+                                order=chapter_order,
+                                word_count=len(ch_content),
+                            )
+                        else:
+                            # 完整导入
+                            ch = Chapter(
+                                novel_id=novel.id,
+                                title=ch_title,
+                                content=ch_content,
+                                order=chapter_order,
+                                word_count=len(ch_content),
+                            )
+                        total_word_count += len(ch_content)
+                        db.session.add(ch)
 
-            except Exception as e:
-                db.session.rollback()
-                import_failed.append((raw_name, str(e)))
-                print(f'  ✗ {raw_name} — 导入失败: {e}')
+                    novel.chapter_count = chapter_order
+                    novel.word_count = total_word_count
+                    db.session.commit()
+
+                    # 更新 Upload 的 novel_id
+                    upload = Upload.query.get(upload_id)
+                    if upload:
+                        upload.novel_id = novel.id
+                        upload.last_import_at = datetime.now()
+                        db.session.commit()
+
+                    import_success.append((raw_name, chapter_order, best_rule.name if best_rule else '固定长度'))
+                    print(f'  ✓ {raw_name} → {chapter_order} 章 (规则: {best_rule.name if best_rule else "固定长度"})')
+
+                except Exception as e:
+                    db.session.rollback()
+                    import_failed.append((raw_name, str(e)))
+                    print(f'  ✗ {raw_name} — 导入失败: {e}')
 
         # 导入汇总
         print(f'\n{"=" * 50}')
