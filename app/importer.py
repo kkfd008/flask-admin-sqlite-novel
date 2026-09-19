@@ -200,7 +200,8 @@ def _save_novel_toc():
     session.pop('import_detected_rule', None)
     session.pop('import_detected_count', None)
 
-    return redirect(url_for('novels.detail', id=novel.id))
+    # 保存后返回上传列表页
+    return redirect(url_for('novels.uploads'))
 
 
 @importer_bp.route('/step2', methods=['GET', 'POST'])
