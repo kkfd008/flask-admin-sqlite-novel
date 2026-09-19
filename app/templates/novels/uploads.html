@@ -12,6 +12,30 @@
   </div>
 </div>
 
+<!-- Search + Sort Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <form method="get" class="search-bar" style="margin-bottom:0;">
+      <input type="search" name="q" class="form-input" style="width:auto;"
+             placeholder="搜索书名" value="{{ q or '' }}">
+      <button type="submit" class="btn btn-primary btn-sm">搜索</button>
+      <select name="sort_by" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>按上传时间</option>
+        <option value="title" {% if sort_by == 'title' %}selected{% endif %}>按书名</option>
+        <option value="file_size" {% if sort_by == 'file_size' %}selected{% endif %}>按文件大小</option>
+        <option value="chapter_count" {% if sort_by == 'chapter_count' %}selected{% endif %}>按章节数量</option>
+      </select>
+      <select name="sort_order" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>降序</option>
+        <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>升序</option>
+      </select>
+      {% if q %}
+      <a href="{{ url_for('novels.uploads') }}" class="btn btn-secondary btn-sm">清除筛选</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
 {% if pagination.items %}
 <div class="table-wrap">
   <table>
@@ -61,18 +85,23 @@
   </span>
   <div style="display: flex; gap: 8px;">
     {% if pagination.has_prev %}
-    <a href="{{ url_for('novels.uploads', page=pagination.prev_num) }}" class="btn btn-sm btn-secondary">上一页</a>
+    <a href="{{ url_for('novels.uploads', page=pagination.prev_num, q=q or none, sort_by=sort_by, sort_order=sort_order) }}" class="btn btn-sm btn-secondary">上一页</a>
     {% endif %}
     {% if pagination.has_next %}
-    <a href="{{ url_for('novels.uploads', page=pagination.next_num) }}" class="btn btn-sm btn-secondary">下一页</a>
+    <a href="{{ url_for('novels.uploads', page=pagination.next_num, q=q or none, sort_by=sort_by, sort_order=sort_order) }}" class="btn btn-sm btn-secondary">下一页</a>
     {% endif %}
   </div>
 </div>
 {% else %}
 <div class="empty-state">
   <div class="icon">📂</div>
+  {% if q %}
+  <h3>没有匹配「{{ q }}」的上传记录</h3>
+  <p class="text-muted"><a href="{{ url_for('novels.uploads') }}">清除搜索</a></p>
+  {% else %}
   <h3>暂无上传记录</h3>
   <p class="text-muted">通过脚本或前台导入小说</p>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}

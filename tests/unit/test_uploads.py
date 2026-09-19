@@ -869,3 +869,75 @@ class TestStep1DuplicateCheck:
             assert upload is not None
             assert upload.novel_id is not None
             assert upload.novel_id != original_novel_id, '应该创建新小说替换旧小说'
+
+
+class TestUploadsSearchAndSort:
+    """novels/uploads 页面搜索，以及按文件大小 / 章节数量排序。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, Novel, Upload
+            user = User(username='admin', password='admin123')
+            novel_a = Novel(title='剑来', chapter_count=10)
+            novel_b = Novel(title='雪中悍刀行', chapter_count=30)
+            db.session.add_all([user, novel_a, novel_b])
+            db.session.commit()
+            db.session.add_all([
+                Upload(title='剑来', file_path='uploads/1/剑来.txt', file_size=1024,
+                       novel_id=novel_a.id, created_at=datetime(2026, 1, 1)),
+                Upload(title='雪中悍刀行', file_path='uploads/1/雪中悍刀行.txt', file_size=5242880,
+                       novel_id=novel_b.id, created_at=datetime(2026, 1, 2)),
+                Upload(title='三体', file_path='uploads/1/三体.txt', file_size=2048,
+                       novel_id=0, created_at=datetime(2026, 1, 3)),
+            ])
+            db.session.commit()
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_search_by_title_filters_results(self, client, app):
+        """搜索 q 应只保留标题匹配的上传记录。"""
+        self._seed(app)
+        self._login(client)
+        html = client.get('/novels/uploads?q=三体').data.decode('utf-8')
+        assert '三体' in html
+        assert '雪中悍刀行' not in html
+
+    def test_search_empty_query_returns_all(self, client, app):
+        """空搜索词应返回全部记录。"""
+        self._seed(app)
+        self._login(client)
+        html = client.get('/novels/uploads?q=').data.decode('utf-8')
+        assert '剑来' in html
+        assert '雪中悍刀行' in html
+        assert '三体' in html
+
+    def test_sort_by_file_size_desc(self, client, app):
+        """按文件大小降序：大文件应排在小文件之前。"""
+        self._seed(app)
+        self._login(client)
+        html = client.get('/novels/uploads?sort_by=file_size&sort_order=desc').data.decode('utf-8')
+        pos_large = html.find('雪中悍刀行')
+        pos_small = html.find('剑来')
+        assert pos_large != -1 and pos_small != -1
+        assert pos_large < pos_small
+
+    def test_sort_by_chapter_count_desc(self, client, app):
+        """按章节数量降序：章节多的应排在前面。"""
+        self._seed(app)
+        self._login(client)
+        html = client.get('/novels/uploads?sort_by=chapter_count&sort_order=desc').data.decode('utf-8')
+        pos_more = html.find('雪中悍刀行')
+        pos_less = html.find('剑来')
+        assert pos_more != -1 and pos_less != -1
+        assert pos_more < pos_less
+
+    def test_sort_by_chapter_count_asc(self, client, app):
+        """按章节数量升序：章节少的应排在前面。"""
+        self._seed(app)
+        self._login(client)
+        html = client.get('/novels/uploads?sort_by=chapter_count&sort_order=asc').data.decode('utf-8')
+        pos_less = html.find('剑来')
+        pos_more = html.find('雪中悍刀行')
+        assert pos_less != -1 and pos_more != -1
+        assert pos_less < pos_more

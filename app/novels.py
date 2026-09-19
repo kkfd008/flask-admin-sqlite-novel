@@ -177,11 +177,35 @@ def rules_delete(id, rule_id):
 def uploads():
     page = request.args.get('page', 1, type=int)
     per_page = 10
+    q = (request.args.get('q') or '').strip()
+    sort_by = request.args.get('sort_by', 'created_at')
+    sort_order = request.args.get('sort_order', 'desc')
 
-    pagination = Upload.query.order_by(Upload.created_at.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
+    query = Upload.query
 
-    return render_template('novels/uploads.html', pagination=pagination)
+    if q:
+        query = query.filter(Upload.title.ilike(f'%{q}%'))
+
+    if sort_by == 'chapter_count':
+        # 章节数量存放在关联的 Novel 上，用外连接保证未导入的记录也保留
+        query = query.outerjoin(Novel, Upload.novel_id == Novel.id)
+        sort_column = Novel.chapter_count
+    elif sort_by == 'file_size':
+        sort_column = Upload.file_size
+    elif sort_by == 'title':
+        sort_column = Upload.title
+    else:
+        sort_column = Upload.created_at
+
+    if sort_order == 'asc':
+        query = query.order_by(sort_column.asc())
+    else:
+        query = query.order_by(sort_column.desc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('novels/uploads.html', pagination=pagination, q=q,
+                           sort_by=sort_by, sort_order=sort_order)
 
 
 @novels_bp.route('/uploads/<int:upload_id>/download')
