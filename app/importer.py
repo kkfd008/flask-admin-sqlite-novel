@@ -328,11 +328,27 @@ def step4():
 
         chapters = session.get('import_chapters', [])
 
-        novel = Novel(title=title, author=author.strip() if author else None)
-        if category_id:
-            novel.category_id = int(category_id)
-        db.session.add(novel)
-        db.session.commit()
+        upload_id = session.get('import_upload_id')
+        upload = db.session.get(Upload, upload_id) if upload_id else None
+
+        # 重新导入已入库的上传记录时，覆盖原书而不是新建一本
+        novel = db.session.get(Novel, upload.novel_id) if (upload and upload.novel_id) else None
+        if novel:
+            novel.title = title
+            novel.author = author.strip() if author else None
+            novel.category_id = int(category_id) if category_id else None
+            novel.updated_at = datetime.now()
+            # 旧章节及其阅读进度、书签一并清除，避免残留指向已删除章节
+            Chapter.query.filter_by(novel_id=novel.id).delete()
+            ReadingProgress.query.filter_by(novel_id=novel.id).delete()
+            Bookmark.query.filter_by(novel_id=novel.id).delete()
+        else:
+            novel = Novel(title=title, author=author.strip() if author else None)
+            if category_id:
+                novel.category_id = int(category_id)
+            db.session.add(novel)
+
+        db.session.flush()
 
         chapter_order = 0
         for ch_data in chapters:
@@ -347,17 +363,14 @@ def step4():
             db.session.add(ch)
 
         novel.chapter_count = chapter_order
-        novel.word_count = sum(len(c.content) for c in novel.chapters)
-        db.session.commit()
+        novel.word_count = sum(len(ch_data['content']) for ch_data in chapters)
 
-        # 更新上传记录的 novel_id
-        upload_id = session.get('import_upload_id')
-        if upload_id:
-            upload = Upload.query.get(upload_id)
-            if upload:
-                upload.novel_id = novel.id
-                upload.last_import_at = datetime.now()
-                db.session.commit()
+        if upload:
+            upload.novel_id = novel.id
+            upload.last_import_at = datetime.now()
+
+        # 一次提交，保证小说、章节、上传关联的原子性
+        db.session.commit()
 
         session.pop('import_filepath', None)
         session.pop('import_filename', None)

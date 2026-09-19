@@ -895,6 +895,26 @@ class TestUploadsSearchAndSort:
     def _login(self, client):
         client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
 
+    def test_uploads_list_shows_chapter_count(self, client, app):
+        """上传列表应显示已导入书籍的章节数量。"""
+        with app.app_context():
+            from app.models import db, User, Novel, Upload
+            user = User(username='admin', password='admin123')
+            novel = Novel(title='剑来', chapter_count=42)
+            db.session.add_all([user, novel])
+            db.session.commit()
+            db.session.add_all([
+                Upload(title='剑来', file_path='uploads/1/剑来.txt', file_size=100, novel_id=novel.id),
+                Upload(title='未导入书', file_path='uploads/1/未导入书.txt', file_size=100, novel_id=0),
+            ])
+            db.session.commit()
+
+        self._login(client)
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        assert '章节数' in html, '上传列表应有章节数列'
+        assert '42 章' in html, '已导入书籍应显示章节数量'
+
     def test_search_by_title_filters_results(self, client, app):
         """搜索 q 应只保留标题匹配的上传记录。"""
         self._seed(app)

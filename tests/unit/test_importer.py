@@ -635,3 +635,89 @@ class TestDetectedCountMatchesImport:
             rows = Chapter.query.filter_by(novel_id=novel.id).count()
             assert rows == 9, f'入库应为 9 章，实际 {rows}'
             assert novel.chapter_count == 9
+
+
+class TestReimportOverwritesExistingNovel:
+    """重新导入应覆盖已存在的书，而不是再生成一本新书。"""
+
+    def _seed_user_and_rule(self, app):
+        with app.app_context():
+            from app.models import db, User, ChapterRule
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章.*$',
+                               category='系统', enabled=True, sort_order=0)
+            db.session.add_all([user, rule])
+            db.session.commit()
+
+    def _import_once(self, app, client, content, filename, title):
+        """走一遍完整导入，返回 (upload_id, novel_id)。"""
+        data = {'file': (io.BytesIO(content.encode('utf-8')), filename)}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+        client.post('/novels/import/step4', data={'title': title, 'author': ''}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Upload, Novel
+            upload = Upload.query.filter_by(title=title).first()
+            novel = Novel.query.filter_by(title=title).first()
+            assert upload is not None and novel is not None
+            return upload.id, novel.id
+
+    def _reimport(self, client, upload_id, title, author=''):
+        client.get(f'/novels/import/reimport/{upload_id}', follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+        client.post('/novels/import/step4', data={'title': title, 'author': author}, follow_redirects=True)
+
+    def test_reimport_reuses_existing_novel(self, app, client):
+        """重新导入后应只有一本书，且书籍 id 保持不变、标题被更新。"""
+        self._seed_user_and_rule(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        upload_id, novel_id = self._import_once(app, client, content, '重导书.txt', '重导书')
+
+        self._reimport(client, upload_id, '重导书改名', author='新作者')
+
+        with app.app_context():
+            from app.models import db, Novel, Chapter, Upload
+            assert Novel.query.count() == 1, '重新导入不应生成新书'
+            novel = Novel.query.first()
+            assert novel.id == novel_id, '应复用原书，id 不变'
+            assert novel.title == '重导书改名'
+            assert novel.author == '新作者'
+            assert Chapter.query.filter_by(novel_id=novel_id).count() == 2
+
+            upload = db.session.get(Upload, upload_id)
+            assert upload.novel_id == novel_id, '上传记录应仍关联原书'
+
+    def test_reimport_replaces_chapters_instead_of_appending(self, app, client):
+        """重新导入应替换旧章节，而不是在旧章节后追加。"""
+        import os
+
+        self._seed_user_and_rule(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        content = '第1章 开始\n这是第一章内容\n第2章 继续\n这是第二章内容'
+        upload_id, novel_id = self._import_once(app, client, content, '章节替换.txt', '章节替换')
+
+        # 改写磁盘上的源文件（模拟用户上传了更新版本），再由「重新导入」重新解析
+        with app.app_context():
+            from app.models import db, Upload
+            upload = db.session.get(Upload, upload_id)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__import__('app').__file__)))
+            file_path = os.path.join(base_dir, upload.file_path)
+
+        new_content = '第1章 甲\n内容甲\n第2章 乙\n内容乙\n第3章 丙\n内容丙'
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+
+        self._reimport(client, upload_id, '章节替换')
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            assert Novel.query.count() == 1, '不应生成新书'
+            novel = Novel.query.first()
+            assert novel.id == novel_id
+            rows = Chapter.query.filter_by(novel_id=novel_id).count()
+            assert rows == 3, f'旧章节应被替换，实际共 {rows} 章'
+            assert novel.chapter_count == 3

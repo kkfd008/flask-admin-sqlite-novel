@@ -42,6 +42,7 @@
     <thead>
       <tr>
         <th>书名</th>
+        <th>章节数</th>
         <th>大小</th>
         <th>上传时间</th>
         <th>导入时间</th>
@@ -52,6 +53,10 @@
       {% for upload in pagination.items %}
       <tr>
         <td>{{ upload.title }}</td>
+        <td class="text-muted">
+          {% set count = chapter_counts.get(upload.novel_id) if upload.novel_id else None %}
+          {% if count is not none %}{{ count }} 章{% else %}-{% endif %}
+        </td>
         <td class="text-muted">
           {% if upload.file_size >= 1048576 %}
           {{ '%.2f'|format(upload.file_size / 1048576) }} MB

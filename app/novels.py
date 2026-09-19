@@ -204,8 +204,17 @@ def uploads():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    # 章节数量存放在关联的 Novel 上，这里批量取出，避免逐行查询
+    novel_ids = [u.novel_id for u in pagination.items if u.novel_id]
+    chapter_counts = {}
+    if novel_ids:
+        rows = db.session.query(Novel.id, Novel.chapter_count)\
+            .filter(Novel.id.in_(novel_ids)).all()
+        chapter_counts = dict(rows)
+
     return render_template('novels/uploads.html', pagination=pagination, q=q,
-                           sort_by=sort_by, sort_order=sort_order)
+                           sort_by=sort_by, sort_order=sort_order,
+                           chapter_counts=chapter_counts)
 
 
 @novels_bp.route('/uploads/<int:upload_id>/download')
