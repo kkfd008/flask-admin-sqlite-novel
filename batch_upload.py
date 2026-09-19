@@ -104,36 +104,47 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
             existing = Upload.query.filter_by(title=raw_name).first()
 
             if existing:
+                # 已存在记录对应的绝对路径
+                existing_path = os.path.join(BASE_DIR, existing.file_path)
+
+                do_overwrite = False
                 if force_size:
-                    if os.path.getsize(src_path) <= existing.file_size:
+                    if os.path.getsize(src_path) > existing.file_size:
+                        do_overwrite = True
+                    elif last_step < 3:
                         failed.append((filename, f'重名且源文件不大于已有文件 ({_format_size(os.path.getsize(src_path))} <= {_format_size(existing.file_size)})'))
                         print(f'  ✗ {filename} — 跳过（源文件不大于已有文件）')
                         continue
-                elif not force:
-                    failed.append((filename, '文件重名：上传表中已存在同名记录'))
-                    print(f'  ✗ {filename} — 跳过（重名）')
-                    continue
+                elif force:
+                    do_overwrite = True
+                else:
+                    if last_step < 3:
+                        failed.append((filename, '文件重名：上传表中已存在同名记录'))
+                        print(f'  ✗ {filename} — 跳过（重名）')
+                        continue
 
-                # 覆盖：保持原路径，更新文件内容和元数据
-                filepath = os.path.join(BASE_DIR, existing.file_path)
-                try:
-                    shutil.copy2(src_path, filepath)
-                except OSError as e:
-                    failed.append((filename, f'文件处理失败: {e}'))
-                    print(f'  ✗ {filename} — 处理失败')
-                    continue
+                if do_overwrite:
+                    # 覆盖：保持原路径，更新文件内容和元数据
+                    try:
+                        shutil.copy2(src_path, existing_path)
+                    except OSError as e:
+                        failed.append((filename, f'文件处理失败: {e}'))
+                        print(f'  ✗ {filename} — 处理失败')
+                        continue
+                    convert_file_to_utf8(existing_path, UTF8_FOLDER)
+                    existing.file_size = os.path.getsize(src_path)
+                    existing.updated_at = datetime.now()
+                    existing.last_import_at = datetime.now()
+                    db.session.commit()
+                    overwritten.append(filename)
+                    tag = 'force-size' if force_size else 'force'
+                    print(f'  ↻ {filename} — 覆盖更新 ({tag})')
+                else:
+                    print(f'  ↻ {filename} — 已存在，重新导入')
 
-                # 转换为 UTF-8 保存到 utf8 目录
-                convert_file_to_utf8(filepath, UTF8_FOLDER)
-
-                existing.file_size = os.path.getsize(src_path)
-                existing.updated_at = datetime.now()
-                existing.last_import_at = datetime.now()
-                db.session.commit()
-
-                overwritten.append(filename)
-                tag = 'force-size' if force_size else 'force'
-                print(f'  ↻ {filename} — 覆盖更新 ({tag})')
+                if last_step >= 3:
+                    utf8_path = convert_file_to_utf8(existing_path, UTF8_FOLDER)
+                    uploaded.append((existing.id, utf8_path, raw_name, subdir))
                 continue
 
             # 新文件：上传到 uploads/YYMMDD/子目录/
