@@ -89,7 +89,11 @@ class UserAdmin(AuthModelView):
     page_size = 20
 
     # Replace password_hash with a plaintext password field
-    form_excluded_columns = ('password_hash',)
+    # 排除数据库自动字段与关系字段，避免触发 "Fields missing from ruleset" 警告
+    form_excluded_columns = (
+        'password_hash', 'created_at',
+        'favorites', 'ratings', 'reading_progress', 'bookmarks',
+    )
     form_extra_fields = {
         'password': PasswordField('密码'),
     }
@@ -99,6 +103,12 @@ class UserAdmin(AuthModelView):
     def on_model_change(self, form, model, is_created):
         if form.password.data:
             model.password_hash = generate_password_hash(form.password.data)
+
+    def _show_missing_fields_warning(self, text):
+        # username 在编辑表单中被有意排除（编辑时不允许修改用户名），静默该已知警告
+        if text == 'Fields missing from ruleset: username':
+            return
+        super()._show_missing_fields_warning(text)
 
 
 class NovelAdmin(AuthModelView):
