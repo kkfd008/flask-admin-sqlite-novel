@@ -69,8 +69,11 @@ def chapter_directory(id):
         .order_by(Chapter.order)\
         .paginate(page=page, per_page=per_page, error_out=False)
 
+    # 上传表中存在对应记录时，页面提供「重新导入」入口
+    upload = Upload.query.filter_by(novel_id=id).first()
+
     return render_template('novels/chapters.html', novel=novel, pagination=pagination,
-                          per_page=per_page, page=page)
+                          per_page=per_page, page=page, upload=upload)
 
 
 @novels_bp.route('/<int:id>/edit', methods=['POST'])

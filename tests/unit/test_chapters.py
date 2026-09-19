@@ -208,3 +208,47 @@ class TestChapterDirectory:
         assert response.status_code == 200
         html = response.data.decode('utf-8')
         assert '暂无' in html or '没有' in html or '空' in html
+
+
+class TestChapterDirectoryReimportButton:
+    """章节目录页：上传表中存在该书记录时，显示「重新导入」按钮。"""
+
+    def _seed(self, app, with_upload):
+        with app.app_context():
+            from app.models import db, User, Novel, Chapter, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+            novel = Novel(title='目录页测试', chapter_count=2, word_count=0)
+            db.session.add(novel)
+            db.session.commit()
+            db.session.add_all([
+                Chapter(novel_id=novel.id, title='第1章', content='内容一', order=1, word_count=3),
+                Chapter(novel_id=novel.id, title='第2章', content='内容二', order=2, word_count=3),
+            ])
+            upload_id = None
+            if with_upload:
+                upload = Upload(title='目录页测试', file_path='uploads/1/目录页测试.txt',
+                                file_size=100, novel_id=novel.id)
+                db.session.add(upload)
+                db.session.commit()
+                upload_id = upload.id
+            return novel.id, upload_id
+
+    def test_shows_reimport_button_when_upload_exists(self, app, client):
+        novel_id, upload_id = self._seed(app, with_upload=True)
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+        html = client.get(f'/novels/{novel_id}/chapter').data.decode('utf-8')
+
+        assert '重新导入' in html, '上传表有记录时应显示重新导入按钮'
+        assert f'/novels/import/reimport/{upload_id}' in html, '按钮应指向该书对应的上传记录'
+
+    def test_hides_reimport_button_without_upload(self, app, client):
+        novel_id, _ = self._seed(app, with_upload=False)
+
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+        html = client.get(f'/novels/{novel_id}/chapter').data.decode('utf-8')
+
+        assert '重新导入' not in html, '上传表无记录时不应显示重新导入按钮'
