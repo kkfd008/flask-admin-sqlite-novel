@@ -647,6 +647,10 @@ tr:hover td { background: var(--accent-subtle); }
       <span class="bottom-tab-icon">📚</span>
       <span class="bottom-tab-label">书架</span>
     </a>
+    <a href="{{ url_for('novels.uploads') }}" class="bottom-tab {% if request.endpoint == 'novels.uploads' %}active{% endif %}">
+      <span class="bottom-tab-icon">📥</span>
+      <span class="bottom-tab-label">导入</span>
+    </a>
     <a href="{{ url_for('search.search') }}" class="bottom-tab {% if request.endpoint == 'search.search' %}active{% endif %}">
       <span class="bottom-tab-icon">🔍</span>
       <span class="bottom-tab-label">搜索</span>
