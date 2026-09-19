@@ -969,7 +969,7 @@ class TestStep4PrefillsOriginalCategory:
         """导入一本带分类的书，再走「重新导入」到 step4，返回页面 HTML。"""
         self._upload(client, '预选分类.txt')
         client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
-        client.post('/novels/import/step4', data={'title': '预选分类', 'author': '',
+        client.post('/novels/import/step4', data={'title': '预选分类', 'author': '原作者',
                                                   'category_id': str(cat_id)}, follow_redirects=True)
 
         with app.app_context():
@@ -993,6 +993,28 @@ class TestStep4PrefillsOriginalCategory:
 
         assert f'value="{cat_id}" checked' in html, '原书分类应默认勾选'
 
+    def test_original_title_and_author_are_prefilled(self, app, client):
+        """重新导入时，标题与作者输入框应回填原书信息。"""
+        cat_id = self._seed(app)
+        self._login(client)
+
+        html = self._open_reimport_step4(app, client, cat_id)
+
+        assert 'name="title" value="预选分类"' in html, '标题应回填原书标题'
+        assert 'name="author" value="原作者"' in html, '作者应回填原书作者'
+
+    def test_new_import_uses_filename_as_title(self, app, client):
+        """全新导入时标题仍取文件名，作者为空。"""
+        cat_id = self._seed(app)
+        self._login(client)
+
+        self._upload(client, '全新导入.txt')
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+
+        html = client.get('/novels/import/step4').data.decode('utf-8')
+        assert 'name="title" value="全新导入"' in html, '新导入标题应取文件名'
+        assert 'name="author" value=""' in html, '新导入作者应为空'
+
     def test_reimport_keeps_category_after_confirm(self, app, client):
         """按页面预选提交后，重新导入不应把分类清空。"""
         cat_id = self._seed(app)
@@ -1000,13 +1022,14 @@ class TestStep4PrefillsOriginalCategory:
         self._open_reimport_step4(app, client, cat_id)
 
         # 模拟浏览器提交：带上 step4 预勾选的分类
-        client.post('/novels/import/step4', data={'title': '预选分类', 'author': '',
+        client.post('/novels/import/step4', data={'title': '预选分类', 'author': '原作者',
                                                   'category_id': str(cat_id)}, follow_redirects=True)
 
         with app.app_context():
             from app.models import Novel
             novel = Novel.query.filter_by(title='预选分类').first()
             assert novel.category_id == cat_id, '重新导入后分类应保留'
+            assert novel.author == '原作者', '重新导入后作者应保留'
 
     def test_no_category_checked_for_new_import(self, app, client):
         """全新导入时不应预选任何分类。"""

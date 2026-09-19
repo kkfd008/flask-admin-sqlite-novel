@@ -454,18 +454,25 @@ def step4():
 
     chapter_count = len(session.get('import_chapters', []))
     categories = Category.query.order_by(Category.sort_order).all()
-    import_filename = session.get('import_original_filename', '')
     detected_rule = session.get('import_detected_rule', '')
     # 提示的匹配数取当前待导入章节数，保证与下一步入库的章节数一致
     detected_count = chapter_count
     is_fallback = session.get('import_fallback', False)
-    # 重新导入时把原书分类回填为已勾选，避免确认后被清空
+    # 重新导入时回填原书的标题、作者、分类，避免确认后被覆盖丢失
     original_novel = _original_novel()
-    current_category_id = original_novel.category_id if original_novel else None
+    if original_novel:
+        form_title = original_novel.title
+        form_author = original_novel.author or ''
+        current_category_id = original_novel.category_id
+    else:
+        form_title = session.get('import_original_filename', '')
+        form_author = ''
+        current_category_id = None
     return render_template('import/step4.html',
                            chapter_count=chapter_count,
                            categories=categories,
-                           import_filename=import_filename,
+                           form_title=form_title,
+                           form_author=form_author,
                            detected_rule=detected_rule,
                            detected_count=detected_count,
                            is_fallback=is_fallback,
