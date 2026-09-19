@@ -252,17 +252,17 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                         if not cat:
                             cat = Category(name=subdir, sort_order=0)
                             db.session.add(cat)
-                            db.session.commit()
+                            db.session.flush()
                         category_id = cat.id
 
-                    # 创建 Novel
+                    # 创建 Novel（先 flush 获取 id，最终与章节一并提交，保证原子性）
                     novel = Novel(
                         title=raw_name,
                         author='',
                         category_id=category_id,
                     )
                     db.session.add(novel)
-                    db.session.commit()
+                    db.session.flush()
 
                     # 创建 Chapter
                     chapter_order = 0
@@ -292,14 +292,15 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
 
                     novel.chapter_count = chapter_order
                     novel.word_count = total_word_count
-                    db.session.commit()
 
-                    # 更新 Upload 的 novel_id
-                    upload = Upload.query.get(upload_id)
+                    # 更新 Upload 的 novel_id（与小说、章节同一事务提交）
+                    upload = db.session.get(Upload, upload_id)
                     if upload:
                         upload.novel_id = novel.id
                         upload.last_import_at = datetime.now()
-                        db.session.commit()
+
+                    # 一次提交，保证小说、章节、关联的原子性，避免部分写入
+                    db.session.commit()
 
                     import_success.append((raw_name, chapter_order, best_rule.name if best_rule else '固定长度'))
                     print(f'  ✓ {raw_name} → {chapter_order} 章 (规则: {best_rule.name if best_rule else "固定长度"})')
