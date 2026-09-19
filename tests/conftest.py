@@ -10,6 +10,13 @@ def create_test_app():
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
         'WTF_CSRF_ENABLED': False,
     })
+
+    # 默认 expire_on_commit=True 会在 commit 后过期所有属性；测试常在嵌套
+    # app_context 结束后仍读取这些实例（此时已分离），从而抛出
+    # DetachedInstanceError。关闭过期后，已加载属性在分离状态下仍可读取。
+    from app import db
+    db.session.session_factory.configure(expire_on_commit=False)
+
     return app
 
 
