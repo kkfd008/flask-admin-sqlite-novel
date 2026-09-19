@@ -20,12 +20,23 @@ def _resolve_per_page(session_key, default):
     return per_page
 
 
+def _resolve_filter(arg_name, session_key):
+    """解析筛选条件：URL 显式传入优先（传空值即清除），否则沿用上次记忆；并写回 session。"""
+    if arg_name in request.args:
+        value = (request.args.get(arg_name) or '').strip()
+    else:
+        value = session.get(session_key) or ''
+    session[session_key] = value
+    return value
+
+
 @novels_bp.route('/')
 @login_required
 def list():
-    category_id = request.args.get('category_id')
-    tag_id = request.args.get('tag_id')
-    q = (request.args.get('q') or '').strip()
+    # 搜索关键字、分类、标签的选择记入 session，下次不带参数访问时沿用上次的选择
+    q = _resolve_filter('q', 'novels_q')
+    category_id = _resolve_filter('category_id', 'novels_category_id')
+    tag_id = _resolve_filter('tag_id', 'novels_tag_id')
     page = request.args.get('page', 1, type=int)
     # 排序选择记入 session，下次不带参数访问时沿用上次的选择
     sort_by = request.args.get('sort_by') or session.get('novels_sort_by') or 'created_at'
@@ -58,6 +69,7 @@ def list():
     tags = Tag.query.all()
 
     return render_template('novels/list.html', pagination=pagination, categories=categories, tags=tags,
+                           q=q, category_id=category_id, tag_id=tag_id,
                            sort_by=sort_by, sort_order=sort_order, per_page=per_page)
 
 

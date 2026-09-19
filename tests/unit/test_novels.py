@@ -346,3 +346,90 @@ class TestNovelsPerPageRememberedInSession:
         assert 'value="20" selected' in html
         assert '书20' in html
         assert '书21' not in html, '默认每页 20 行，第 21 本应在第二页'
+
+
+class TestNovelsFiltersRememberedInSession:
+    """书架页的搜索关键字、分类、标签用 session 记忆。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, Novel, Category, Tag
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+
+            cat_wuxia = Category(name='武侠')
+            cat_scifi = Category(name='科幻')
+            tag_done = Tag(name='完结')
+            db.session.add_all([cat_wuxia, cat_scifi, tag_done])
+            db.session.commit()
+
+            jianlai = Novel(title='剑来', author='烽火戏诸侯', category_id=cat_wuxia.id)
+            santi = Novel(title='三体', author='刘慈欣', category_id=cat_scifi.id)
+            db.session.add_all([jianlai, santi])
+            db.session.commit()
+            jianlai.tags.append(tag_done)
+            db.session.commit()
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_search_keyword_is_remembered(self, app, client):
+        """不带参数再次访问时，应沿用上次的搜索关键字。"""
+        self._seed(app)
+        self._login(client)
+
+        client.get('/novels/?q=三体')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert 'value="三体"' in html, '搜索框应回显上次的关键字'
+        assert '三体' in html
+        assert '剑来' not in html, '不匹配的书不应出现，说明关键字记忆生效'
+
+    def test_category_is_remembered(self, app, client):
+        """不带参数再次访问时，应沿用上次的分类筛选。"""
+        self._seed(app)
+        self._login(client)
+
+        with app.app_context():
+            from app.models import Category
+            cat_id = Category.query.filter_by(name='科幻').first().id
+
+        client.get(f'/novels/?category_id={cat_id}')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert f'value="{cat_id}" selected' in html, '分类下拉应回显上次的选择'
+        assert '三体' in html
+        assert '剑来' not in html, '其他分类的书不应出现，说明分类记忆生效'
+
+    def test_tag_is_remembered(self, app, client):
+        """不带参数再次访问时，应沿用上次的标签筛选。"""
+        self._seed(app)
+        self._login(client)
+
+        with app.app_context():
+            from app.models import Tag
+            tag_id = Tag.query.filter_by(name='完结').first().id
+
+        client.get(f'/novels/?tag_id={tag_id}')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert f'value="{tag_id}" selected' in html, '标签下拉应回显上次的选择'
+        assert '剑来' in html
+        assert '三体' not in html, '无该标签的书不应出现，说明标签记忆生效'
+
+    def test_clear_params_reset_memory(self, app, client):
+        """显式传入空值时应清除记忆的筛选条件。"""
+        self._seed(app)
+        self._login(client)
+
+        client.get('/novels/?q=三体')
+
+        html = client.get('/novels/?q=三体').data.decode('utf-8')
+        assert '/novels/?q=' in html, '清除链接应显式传空值，否则会被记忆值覆盖'
+
+        html = client.get('/novels/?q=&category_id=&tag_id=').data.decode('utf-8')
+        assert '剑来' in html and '三体' in html, '清除后应显示全部书'
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert '剑来' in html and '三体' in html, '清除后的状态也应被记忆'
