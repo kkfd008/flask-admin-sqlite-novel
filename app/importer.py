@@ -305,7 +305,7 @@ def step4():
         session.pop('import_original_filename', None)
         session.pop('import_upload_id', None)
         session.pop('import_pattern', None)
-        session.pop('import_chapter_titles', None)
+        session.pop('import_chapters', None)
         session.pop('import_rule_ids', None)
         session.pop('import_fallback', None)
         session.pop('import_detected_rule', None)
@@ -313,7 +313,7 @@ def step4():
 
         return redirect(url_for('novels.detail', id=novel.id))
 
-    chapter_count = len(session.get('import_chapter_titles', []))
+    chapter_count = len(session.get('import_chapters', []))
     categories = Category.query.order_by(Category.sort_order).all()
     import_filename = session.get('import_original_filename', '')
     detected_rule = session.get('import_detected_rule', '')
