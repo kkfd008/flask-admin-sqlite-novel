@@ -538,3 +538,100 @@ class TestStep3DeleteMerge:
                     pytest.fail(f're.split returned None at index {i} for content: {content!r}')
                 # 验证 .strip() 不会报错
                 p.strip()
+
+
+class TestDetectedCountMatchesImport:
+    """步骤页提示的「匹配 N 个章节」必须与实际拆分明细、入库章节数完全一致。"""
+
+    def _seed_user_and_rule(self, app):
+        with app.app_context():
+            from app.models import db, User, ChapterRule
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章.*$',
+                               category='系统', enabled=True, sort_order=0)
+            db.session.add_all([user, rule])
+            db.session.commit()
+
+    def test_step4_detected_count_equals_actual_chapter_count(self, app, client):
+        """章节较短（相邻匹配间隔 < 1000 字）时，提示数不应被估算逻辑压低。"""
+        import re
+
+        self._seed_user_and_rule(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        # 10 章，每章约 100 字：相邻章节标题间距远小于 1000 字
+        parts = [f'第{i}章 标题{i}\n' + ('内容。' * 30) for i in range(1, 11)]
+        content = '\n'.join(parts)
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '短章节.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+
+        html = client.get('/novels/import/step4').data.decode('utf-8')
+
+        m_count = re.search(r'chapter-count-number">\s*(\d+)', html)
+        m_matched = re.search(r'匹配\s*(\d+)\s*个章节', html)
+        assert m_count, '步骤4 应显示待导入章节数'
+        assert m_matched, '步骤4 应显示匹配到的章节数'
+
+        assert m_count.group(1) == '10', f'待导入章节数应为 10，实际 {m_count.group(1)}'
+        assert m_matched.group(1) == '10', f'匹配章节数应为 10，实际 {m_matched.group(1)}'
+
+    def test_step4_detected_count_equals_db_chapter_count(self, app, client):
+        """提示的匹配数应与最终入库的 Novel.chapter_count 及 Chapter 行数一致。"""
+        import re
+
+        self._seed_user_and_rule(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        parts = [f'第{i}章 标题{i}\n' + ('内容。' * 30) for i in range(1, 11)]
+        content = '\n'.join(parts)
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '短章节入库.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+
+        html = client.get('/novels/import/step4').data.decode('utf-8')
+        m_matched = re.search(r'匹配\s*(\d+)\s*个章节', html)
+        assert m_matched, '步骤4 应显示匹配到的章节数'
+        matched = int(m_matched.group(1))
+
+        client.post('/novels/import/step4', data={'title': '短章节入库', 'author': ''}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            novel = Novel.query.filter_by(title='短章节入库').first()
+            assert novel is not None
+            rows = Chapter.query.filter_by(novel_id=novel.id).count()
+            assert matched == rows == 10, f'提示数 {matched} 与入库行数 {rows} 应一致且为 10'
+            assert novel.chapter_count == rows, f'Novel.chapter_count={novel.chapter_count} 应等于实际行数 {rows}'
+
+    def test_step4_detected_count_follows_step3_deletion(self, app, client):
+        """在步骤3删除章节后，步骤4 的匹配数应随之更新，与入库数保持一致。"""
+        import re
+
+        self._seed_user_and_rule(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        parts = [f'第{i}章 标题{i}\n' + ('内容。' * 30) for i in range(1, 11)]
+        content = '\n'.join(parts)
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '删除章节.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+
+        # 在步骤3 删除第 2 个章节（内容并入上一章）
+        client.post('/novels/import/step3', data={'delete_index': '1'}, follow_redirects=True)
+
+        html = client.get('/novels/import/step4').data.decode('utf-8')
+        m_count = re.search(r'chapter-count-number">\s*(\d+)', html)
+        m_matched = re.search(r'匹配\s*(\d+)\s*个章节', html)
+        assert m_count and m_matched
+        assert m_count.group(1) == '9', f'删除后应为 9 章，实际 {m_count.group(1)}'
+        assert m_matched.group(1) == '9', f'删除后匹配数应为 9，实际 {m_matched.group(1)}'
+
+        client.post('/novels/import/step4', data={'title': '删除章节', 'author': ''}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            novel = Novel.query.filter_by(title='删除章节').first()
+            rows = Chapter.query.filter_by(novel_id=novel.id).count()
+            assert rows == 9, f'入库应为 9 章，实际 {rows}'
+            assert novel.chapter_count == 9

@@ -198,7 +198,6 @@ def _save_novel_toc():
     session.pop('import_rule_ids', None)
     session.pop('import_fallback', None)
     session.pop('import_detected_rule', None)
-    session.pop('import_detected_count', None)
 
     # 保存后返回上传列表页
     return redirect(url_for('novels.uploads'))
@@ -216,6 +215,8 @@ def step2():
 
     if request.method == 'POST':
         mode = request.form.get('mode', 'auto')
+        # 清除上一次导入残留的规则名，避免提示与本次结果不符
+        session.pop('import_detected_rule', None)
 
         if mode == 'auto':
             # 自动检测最佳规则
@@ -223,7 +224,7 @@ def step2():
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
 
-            best_rule, best_pattern, match_count = get_best_pattern(content)
+            best_rule, best_pattern, _ = get_best_pattern(content)
 
             if best_pattern is None:
                 # 未找到合适规则，使用固定长度兜底（继续走后续分割与操作判断）
@@ -233,7 +234,6 @@ def step2():
                 session['import_rule_ids'] = [str(best_rule.id)] if best_rule else []
                 session['import_pattern'] = best_pattern.pattern if best_pattern else ''
                 session['import_detected_rule'] = best_rule.name if best_rule else '未知'
-                session['import_detected_count'] = match_count
                 session['import_fallback'] = False
         else:
             # 手动选择规则
@@ -368,7 +368,6 @@ def step4():
         session.pop('import_rule_ids', None)
         session.pop('import_fallback', None)
         session.pop('import_detected_rule', None)
-        session.pop('import_detected_count', None)
 
         return redirect(url_for('novels.detail', id=novel.id))
 
@@ -376,7 +375,8 @@ def step4():
     categories = Category.query.order_by(Category.sort_order).all()
     import_filename = session.get('import_original_filename', '')
     detected_rule = session.get('import_detected_rule', '')
-    detected_count = session.get('import_detected_count', 0)
+    # 提示的匹配数取当前待导入章节数，保证与下一步入库的章节数一致
+    detected_count = chapter_count
     is_fallback = session.get('import_fallback', False)
     return render_template('import/step4.html',
                            chapter_count=chapter_count,
