@@ -5,6 +5,19 @@ import os
 import re
 
 
+def utf8_path_for(src_path, utf8_dir, upload_root):
+    """返回源文件对应的 utf8 副本路径（不保证文件存在）。
+
+    与 convert_file_to_utf8 的命名规则一致：保留相对 upload_root 的目录结构，
+    例如 uploads/260919/book/a.txt → utf8/260919/book/a.txt。
+    """
+    rel_path = os.path.relpath(src_path, upload_root)
+    # 源文件不在上传根目录内时，退化为仅保留文件名
+    if rel_path.startswith('..'):
+        rel_path = os.path.basename(src_path)
+    return os.path.join(utf8_dir, rel_path)
+
+
 def convert_file_to_utf8(src_path, utf8_dir, upload_root):
     """将源文件内容转换为 UTF-8 编码，保存到 utf8 目录。
 
@@ -13,13 +26,7 @@ def convert_file_to_utf8(src_path, utf8_dir, upload_root):
 
     返回转换后文件的绝对路径。
     """
-    # 相对 upload_root 的路径，用于在 utf8 目录中镜像同样的目录层级
-    rel_path = os.path.relpath(src_path, upload_root)
-    # 源文件不在上传根目录内时，退化为仅保留文件名
-    if rel_path.startswith('..'):
-        rel_path = os.path.basename(src_path)
-
-    dest_path = os.path.join(utf8_dir, rel_path)
+    dest_path = utf8_path_for(src_path, utf8_dir, upload_root)
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
     with open(src_path, 'rb') as f:

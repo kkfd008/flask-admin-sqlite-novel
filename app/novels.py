@@ -1,9 +1,14 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session, send_file
 from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule, Favorite, Rating, Bookmark, ReadingProgress, Upload
 from app.auth import login_required
+from app.utils import utf8_path_for
 import os
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'uploads')
+UTF8_FOLDER = os.path.join(PROJECT_ROOT, 'utf8')
 
 # 各列表页可选的每页行数
 PER_PAGE_OPTIONS = (10, 20, 50, 100)
@@ -259,7 +264,11 @@ def uploads():
 @login_required
 def download_upload(upload_id):
     upload = Upload.query.get_or_404(upload_id)
-    filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)), upload.file_path)
+    filepath = os.path.join(PROJECT_ROOT, upload.file_path)
+    # 优先下载 utf8 目录下的转换副本；副本不存在时（如仅上传未导入）回退到原文件
+    utf8_path = utf8_path_for(filepath, UTF8_FOLDER, UPLOAD_FOLDER)
+    if os.path.exists(utf8_path):
+        filepath = utf8_path
     if not os.path.exists(filepath):
         return '文件不存在', 404
     return send_file(filepath, as_attachment=True, download_name=upload.title + os.path.splitext(upload.file_path)[1])

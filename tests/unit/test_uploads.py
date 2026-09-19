@@ -1077,3 +1077,60 @@ class TestUploadsPerPageRememberedInSession:
         html = client.get('/novels/uploads').data.decode('utf-8')
         assert 'value="10" selected' in html, '上传列表页应仍为默认每页 10 行'
         assert 'value="50" selected' not in html, '不应套用书架页的每页行数记忆'
+
+
+class TestUploadDownloadUsesUtf8Copy:
+    """上传列表页的下载应取 utf8 目录下的转换副本，而不是 uploads 下的原文件。"""
+
+    REL_PATH = 'uploads/260919/剑来.txt'
+
+    def _setup_dirs(self, tmp_path, monkeypatch):
+        """准备临时 uploads / utf8 目录，并把视图使用的根目录指过去。"""
+        uploads_root = tmp_path / 'uploads'
+        utf8_root = tmp_path / 'utf8'
+        (uploads_root / '260919').mkdir(parents=True)
+        (utf8_root / '260919').mkdir(parents=True)
+        # 原文件用 GBK 编码，转换副本用 UTF-8，便于区分下载到的是哪一份
+        (uploads_root / '260919' / '剑来.txt').write_bytes('原始内容'.encode('gb18030'))
+        (utf8_root / '260919' / '剑来.txt').write_bytes('转换内容'.encode('utf-8'))
+
+        monkeypatch.setattr('app.novels.PROJECT_ROOT', str(tmp_path))
+        monkeypatch.setattr('app.novels.UPLOAD_FOLDER', str(uploads_root))
+        monkeypatch.setattr('app.novels.UTF8_FOLDER', str(utf8_root))
+
+    def _seed_upload(self, app):
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            upload = Upload(title='剑来', file_path=self.REL_PATH, file_size=100)
+            db.session.add(upload)
+            db.session.commit()
+            return upload.id
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_download_serves_utf8_copy(self, app, client, tmp_path, monkeypatch):
+        """utf8 目录存在副本时，下载应返回副本内容。"""
+        self._setup_dirs(tmp_path, monkeypatch)
+        upload_id = self._seed_upload(app)
+        self._login(client)
+
+        response = client.get(f'/novels/uploads/{upload_id}/download')
+
+        assert response.status_code == 200
+        assert response.data == '转换内容'.encode('utf-8'), '应下载 utf8 目录下的副本'
+
+    def test_download_falls_back_to_original(self, app, client, tmp_path, monkeypatch):
+        """utf8 副本不存在时（如仅上传未导入），回退下载原文件。"""
+        self._setup_dirs(tmp_path, monkeypatch)
+        (tmp_path / 'utf8' / '260919' / '剑来.txt').unlink()
+        upload_id = self._seed_upload(app)
+        self._login(client)
+
+        response = client.get(f'/novels/uploads/{upload_id}/download')
+
+        assert response.status_code == 200
+        assert response.data == '原始内容'.encode('gb18030'), '无副本时应回退到原文件'
