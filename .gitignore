@@ -66,6 +66,7 @@ instance/
 .webassets-cache
 flask_session/
 uploads/
+utf8/
 
 # Scrapy stuff:
 .scrapy
