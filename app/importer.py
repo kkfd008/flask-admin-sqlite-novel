@@ -276,11 +276,6 @@ def step2():
             results = split_chapters(content, compiled)
             session['import_chapters'] = [{'title': t, 'content': c} for t, c in results]
 
-        # 保存章节目录：直接入库（不保存章节内容），跳过第三步预览
-        action = request.form.get('action', 'next')
-        if action == 'save_toc':
-            return _save_novel_toc()
-
         return redirect(url_for('importer.step3'))
 
     return render_template('import/step2.html',
@@ -298,6 +293,10 @@ def step3():
     chapters = session.get('import_chapters', [])
 
     if request.method == 'POST':
+        # 保存章节目录：直接入库（不保存章节内容），返回上传列表
+        if request.form.get('action') == 'save_toc':
+            return _save_novel_toc()
+
         delete_index = request.form.get('delete_index')
         if delete_index is not None:
             idx = int(delete_index)

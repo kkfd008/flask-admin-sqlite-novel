@@ -216,8 +216,12 @@
 
   <div class="step3-actions">
     <a href="{{ url_for('importer.step2') }}" class="btn btn-secondary">上一步</a>
-    <button type="submit" class="btn btn-primary" onclick="document.getElementById('nextForm').submit();">下一步</button>
+    <button type="button" class="btn btn-secondary" onclick="document.getElementById('saveTocForm').submit();">保存章节目录</button>
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('nextForm').submit();">下一步</button>
   </div>
+  <form method="post" id="saveTocForm" style="display:none;">
+    <input type="hidden" name="action" value="save_toc">
+  </form>
   <form method="post" id="nextForm" style="display:none;"><button type="submit">next</button></form>
 </div>
 
