@@ -5,12 +5,22 @@ import os
 import re
 
 
-def convert_file_to_utf8(src_path, utf8_dir):
-    """将源文件内容转换为 UTF-8 编码，保存到 utf8 目录（文件名与源文件相同）。
+def convert_file_to_utf8(src_path, utf8_dir, upload_root):
+    """将源文件内容转换为 UTF-8 编码，保存到 utf8 目录。
+
+    保留与 upload_root（上传根目录）相同的相对目录结构，
+    例如 uploads/260919/book/a.txt → utf8/260919/book/a.txt。
 
     返回转换后文件的绝对路径。
     """
-    os.makedirs(utf8_dir, exist_ok=True)
+    # 相对 upload_root 的路径，用于在 utf8 目录中镜像同样的目录层级
+    rel_path = os.path.relpath(src_path, upload_root)
+    # 源文件不在上传根目录内时，退化为仅保留文件名
+    if rel_path.startswith('..'):
+        rel_path = os.path.basename(src_path)
+
+    dest_path = os.path.join(utf8_dir, rel_path)
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
     with open(src_path, 'rb') as f:
         raw = f.read()
@@ -61,7 +71,6 @@ def convert_file_to_utf8(src_path, utf8_dir):
     if text is None:
         text = decode('utf-8', errors='replace')
 
-    dest_path = os.path.join(utf8_dir, os.path.basename(src_path))
     with open(dest_path, 'wb') as f:
         f.write(text.encode('utf-8'))
 

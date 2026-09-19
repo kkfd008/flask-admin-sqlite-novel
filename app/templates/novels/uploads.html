@@ -44,7 +44,7 @@
           <a href="{{ url_for('novels.detail', id=upload.novel_id) }}" class="btn btn-sm btn-primary">阅读</a>
           <a href="{{ url_for('importer.reimport', upload_id=upload.id) }}" class="btn btn-sm btn-secondary">重新导入</a>
           {% else %}
-          <a href="{{ url_for('importer.reimport', upload_id=upload.id) }}" class="btn btn-sm btn-primary">导入</a>
+          <a href="{{ url_for('importer.reimport', upload_id=upload.id) }}" class="btn btn-sm btn-primary">导入书库</a>
           {% endif %}
           <a href="{{ url_for('novels.download_upload', upload_id=upload.id) }}" class="btn btn-sm btn-secondary">下载</a>
         </td>

@@ -131,7 +131,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                         failed.append((filename, f'文件处理失败: {e}'))
                         print(f'  ✗ {filename} — 处理失败')
                         continue
-                    convert_file_to_utf8(existing_path, UTF8_FOLDER)
+                    convert_file_to_utf8(existing_path, UTF8_FOLDER, UPLOAD_FOLDER)
                     existing.file_size = os.path.getsize(src_path)
                     existing.updated_at = datetime.now()
                     existing.last_import_at = datetime.now()
@@ -143,7 +143,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                     print(f'  ↻ {filename} — 已存在，重新导入')
 
                 if last_step >= 3:
-                    utf8_path = convert_file_to_utf8(existing_path, UTF8_FOLDER)
+                    utf8_path = convert_file_to_utf8(existing_path, UTF8_FOLDER, UPLOAD_FOLDER)
                     uploaded.append((existing.id, utf8_path, raw_name, subdir))
                 continue
 
@@ -166,7 +166,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                 continue
 
             # 转换为 UTF-8 保存到 utf8 目录，供章节分析使用
-            utf8_path = convert_file_to_utf8(dest_path, UTF8_FOLDER)
+            utf8_path = convert_file_to_utf8(dest_path, UTF8_FOLDER, UPLOAD_FOLDER)
 
             file_size = os.path.getsize(dest_path)
             rel_path = os.path.join(rel_dir, saved_filename)

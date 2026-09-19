@@ -126,7 +126,7 @@ def step1():
         session['import_original_filename'] = raw_name
 
         # 上传文件转换为 UTF-8 后保存到 utf8 目录，供章节分析读取
-        session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER)
+        session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER, UPLOAD_FOLDER)
         session['import_filename'] = raw_name
 
         return redirect(url_for('importer.step2'))
@@ -145,7 +145,7 @@ def reimport(upload_id):
 
     raw_name = os.path.splitext(os.path.basename(upload.file_path))[0]
 
-    session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER)
+    session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER, UPLOAD_FOLDER)
     session['import_filename'] = raw_name
     session['import_original_filename'] = raw_name
     session['import_upload_id'] = upload.id
