@@ -1,4 +1,5 @@
 from app.models import db, ChapterRule, Rating
+import chardet
 import math
 import os
 import re
@@ -14,16 +15,51 @@ def convert_file_to_utf8(src_path, utf8_dir):
     with open(src_path, 'rb') as f:
         raw = f.read()
 
-    if raw.startswith(b'\xef\xbb\xbf'):
-        text = raw.decode('utf-8-sig')
-    else:
+    has_bom = raw.startswith(b'\xef\xbb\xbf')
+
+    def decode(enc, errors='strict'):
         try:
-            text = raw.decode('utf-8')
-        except UnicodeDecodeError:
-            try:
-                text = raw.decode('gb18030')
-            except UnicodeDecodeError:
-                text = raw.decode('utf-8', errors='replace')
+            return raw.decode(enc, errors=errors)
+        except (UnicodeDecodeError, LookupError):
+            return None
+
+    # 1. 用 chardet 检测编码（取前 1MB 样本）
+    detected_enc = None
+    try:
+        d = chardet.detect(raw[:1024 * 1024])
+        if d.get('confidence', 0.0) >= 0.5 and d.get('encoding'):
+            detected_enc = d['encoding'].lower()
+    except Exception:
+        detected_enc = None
+
+    # 2. 归一化编码名：GB 系列统一用 GB18030（GBK/GB2312 超集）
+    enc = None
+    if detected_enc:
+        if detected_enc in ('utf-8', 'utf-8-sig', 'utf8', 'ascii'):
+            enc = 'utf-8-sig' if has_bom else 'utf-8'
+        elif detected_enc in ('gb2312', 'gbk', 'gb18030', 'gb-2312'):
+            enc = 'gb18030'
+        elif detected_enc in ('big5', 'big-5'):
+            enc = 'big5'
+        else:
+            enc = detected_enc
+
+    # 3. 解码：优先严格；UTF-8 文件若末尾损坏则容错解码以保留正文
+    text = None
+    if enc:
+        text = decode(enc)
+        if text is None:
+            text = decode(enc, errors='replace')
+
+    # 4. 回退：UTF-8 → GB18030
+    if text is None:
+        text = decode('utf-8-sig' if has_bom else 'utf-8')
+    if text is None:
+        text = decode('gb18030')
+
+    # 5. 最终兜底（永不抛异常）
+    if text is None:
+        text = decode('utf-8', errors='replace')
 
     dest_path = os.path.join(utf8_dir, os.path.basename(src_path))
     with open(dest_path, 'wb') as f:
