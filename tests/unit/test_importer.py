@@ -942,3 +942,80 @@ class TestStep2RuleLayout:
         assert f'name="rule_ids" value="{ids["增强"]}"' not in html, '增强规则不应再渲染成复选框'
         assert '<option value="">' in html or 'value="">不使用' in html, '下拉应有空默认项'
 
+
+class TestStep4PrefillsOriginalCategory:
+    """重新导入时，最后一步应把原书的分类默认勾选，避免确认后分类丢失。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, ChapterRule, Category
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='中文数字章节', pattern='^第\\d+章.*$',
+                               category='系统', enabled=True, sort_order=0)
+            cat = Category(name='武侠分类', sort_order=0)
+            db.session.add_all([user, rule, cat])
+            db.session.commit()
+            return cat.id
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def _upload(self, client, filename):
+        content = '第1章 甲\n内容甲\n第2章 乙\n内容乙'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), filename)}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+
+    def _open_reimport_step4(self, app, client, cat_id):
+        """导入一本带分类的书，再走「重新导入」到 step4，返回页面 HTML。"""
+        self._upload(client, '预选分类.txt')
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+        client.post('/novels/import/step4', data={'title': '预选分类', 'author': '',
+                                                  'category_id': str(cat_id)}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Upload, Novel
+            upload = Upload.query.filter_by(title='预选分类').first()
+            novel = Novel.query.filter_by(title='预选分类').first()
+            assert upload is not None and novel is not None
+            assert novel.category_id == cat_id, '前置条件：原书应已设置分类'
+            upload_id = upload.id
+
+        client.get(f'/novels/import/reimport/{upload_id}', follow_redirects=True)
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+        return client.get('/novels/import/step4').data.decode('utf-8')
+
+    def test_original_category_is_checked_on_step4(self, app, client):
+        """重新导入时，原书分类的 radio 应带 checked。"""
+        cat_id = self._seed(app)
+        self._login(client)
+
+        html = self._open_reimport_step4(app, client, cat_id)
+
+        assert f'value="{cat_id}" checked' in html, '原书分类应默认勾选'
+
+    def test_reimport_keeps_category_after_confirm(self, app, client):
+        """按页面预选提交后，重新导入不应把分类清空。"""
+        cat_id = self._seed(app)
+        self._login(client)
+        self._open_reimport_step4(app, client, cat_id)
+
+        # 模拟浏览器提交：带上 step4 预勾选的分类
+        client.post('/novels/import/step4', data={'title': '预选分类', 'author': '',
+                                                  'category_id': str(cat_id)}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Novel
+            novel = Novel.query.filter_by(title='预选分类').first()
+            assert novel.category_id == cat_id, '重新导入后分类应保留'
+
+    def test_no_category_checked_for_new_import(self, app, client):
+        """全新导入时不应预选任何分类。"""
+        cat_id = self._seed(app)
+        self._login(client)
+
+        self._upload(client, '全新导入.txt')
+        client.post('/novels/import/step2', data={'mode': 'auto'}, follow_redirects=True)
+
+        html = client.get('/novels/import/step4').data.decode('utf-8')
+        assert f'value="{cat_id}" checked' not in html, '新导入不应预选分类'
+

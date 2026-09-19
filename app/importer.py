@@ -44,15 +44,23 @@ def _save_novel_custom_rule(novel_id, pattern):
         db.session.add(NovelChapterRule(novel_id=novel_id, pattern=pattern))
 
 
-def _saved_custom_pattern():
-    """重新导入时，回填该书已保存的自定义规则。"""
+def _original_novel():
+    """重新导入时返回将被覆盖的原书，全新导入时返回 None。"""
     upload_id = session.get('import_upload_id')
     if not upload_id:
-        return ''
+        return None
     upload = db.session.get(Upload, upload_id)
     if not upload or not upload.novel_id:
+        return None
+    return db.session.get(Novel, upload.novel_id)
+
+
+def _saved_custom_pattern():
+    """重新导入时，回填该书已保存的自定义规则。"""
+    novel = _original_novel()
+    if not novel:
         return ''
-    rule = NovelChapterRule.query.filter_by(novel_id=upload.novel_id).first()
+    rule = NovelChapterRule.query.filter_by(novel_id=novel.id).first()
     return rule.pattern if rule else ''
 
 
@@ -451,10 +459,14 @@ def step4():
     # 提示的匹配数取当前待导入章节数，保证与下一步入库的章节数一致
     detected_count = chapter_count
     is_fallback = session.get('import_fallback', False)
+    # 重新导入时把原书分类回填为已勾选，避免确认后被清空
+    original_novel = _original_novel()
+    current_category_id = original_novel.category_id if original_novel else None
     return render_template('import/step4.html',
                            chapter_count=chapter_count,
                            categories=categories,
                            import_filename=import_filename,
                            detected_rule=detected_rule,
                            detected_count=detected_count,
-                           is_fallback=is_fallback)
+                           is_fallback=is_fallback,
+                           current_category_id=current_category_id)
