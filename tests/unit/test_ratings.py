@@ -184,8 +184,11 @@ class TestAverageRatingCalculation:
 
     def test_user_rating_default_zero(self, app):
         with app.app_context():
-            from app.models import Novel
+            from app.models import db, Novel
             novel = Novel(title='测试小说')
+            # user_rating 的默认值在写入时由数据库填充，需先入库再断言
+            db.session.add(novel)
+            db.session.commit()
             assert novel.user_rating == 0
 
             from app.utils import calculate_average_rating

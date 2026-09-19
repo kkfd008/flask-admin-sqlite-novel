@@ -2,6 +2,18 @@ import pytest
 import os
 
 
+# 真实小说样本体积较大，放在 uploads/ 下（该目录已被 .gitignore 忽略），
+# 干净环境中不存在该文件，因此缺少样本时跳过而不是失败。
+REAL_NOVEL_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    'uploads', '重生80年代：我的首富兄弟.txt')
+
+requires_real_novel = pytest.mark.skipif(
+    not os.path.exists(REAL_NOVEL_FILE),
+    reason=f'缺少真实小说样本文件: {REAL_NOVEL_FILE}')
+
+
+@requires_real_novel
 class TestRealNovelImport:
     def test_import_real_novel_file(self, app, client):
         """使用真实小说文件导入，验证章节数、字数、内容正确"""
@@ -20,9 +32,7 @@ class TestRealNovelImport:
         client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
 
         # 上传真实小说文件
-        filepath = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                               'uploads', '重生80年代：我的首富兄弟.txt')
-        with open(filepath, 'rb') as f:
+        with open(REAL_NOVEL_FILE, 'rb') as f:
             data = {'file': (f, '重生80年代：我的首富兄弟.txt')}
             response = client.post('/novels/import', data=data, content_type='multipart/form-data',
                                    follow_redirects=True)
@@ -105,9 +115,7 @@ class TestRealNovelImport:
 
         client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
 
-        filepath = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                               'uploads', '重生80年代：我的首富兄弟.txt')
-        with open(filepath, 'rb') as f:
+        with open(REAL_NOVEL_FILE, 'rb') as f:
             data = {'file': (f, '重生80年代：我的首富兄弟.txt')}
             client.post('/novels/import', data=data, content_type='multipart/form-data',
                         follow_redirects=True)
