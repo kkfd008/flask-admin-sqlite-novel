@@ -32,10 +32,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app, db
 from app.models import Upload, Novel, Chapter, ChapterRule, Category
-from app.utils import get_best_pattern, split_chapters, split_by_fixed_length, init_default_rules
+from app.utils import get_best_pattern, split_chapters, split_by_fixed_length, init_default_rules, convert_file_to_utf8
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+UTF8_FOLDER = os.path.join(BASE_DIR, 'utf8')
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'instance', 'novel.db')
 
 
@@ -122,6 +123,9 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                     print(f'  ✗ {filename} — 处理失败')
                     continue
 
+                # 转换为 UTF-8 保存到 utf8 目录
+                convert_file_to_utf8(filepath, UTF8_FOLDER)
+
                 existing.file_size = os.path.getsize(src_path)
                 existing.updated_at = datetime.now()
                 existing.last_import_at = datetime.now()
@@ -150,6 +154,9 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                 print(f'  ✗ {filename} — 复制失败')
                 continue
 
+            # 转换为 UTF-8 保存到 utf8 目录，供章节分析使用
+            utf8_path = convert_file_to_utf8(dest_path, UTF8_FOLDER)
+
             file_size = os.path.getsize(dest_path)
             rel_path = os.path.join(rel_dir, saved_filename)
             upload = Upload(
@@ -164,7 +171,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
             print(f'  ✓ {filename} → {rel_path}')
 
             if last_step >= 3:
-                    uploaded.append((upload.id, dest_path, raw_name, subdir))
+                    uploaded.append((upload.id, utf8_path, raw_name, subdir))
 
     # 汇总
     print(f'\n{"=" * 50}')

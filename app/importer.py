@@ -5,11 +5,12 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, session
 from app.models import db, Novel, Chapter, ChapterRule, Category, Upload, NovelChapterRule, Favorite, Rating, ReadingProgress, Bookmark
 from app.auth import login_required
-from app.utils import DEFAULT_RULES, get_best_pattern, split_chapters, split_by_fixed_length
+from app.utils import DEFAULT_RULES, get_best_pattern, split_chapters, split_by_fixed_length, convert_file_to_utf8
 
 importer_bp = Blueprint('importer', __name__, url_prefix='/novels/import')
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+UTF8_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utf8')
 
 
 @importer_bp.route('', methods=['GET', 'POST'])
@@ -112,7 +113,8 @@ def step1():
 
         session['import_original_filename'] = raw_name
 
-        session['import_filepath'] = filepath
+        # 上传文件转换为 UTF-8 后保存到 utf8 目录，供章节分析读取
+        session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER)
         session['import_filename'] = raw_name
 
         # 清理临时文件
@@ -138,7 +140,7 @@ def reimport(upload_id):
 
     raw_name = os.path.splitext(os.path.basename(upload.file_path))[0]
 
-    session['import_filepath'] = filepath
+    session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER)
     session['import_filename'] = raw_name
     session['import_original_filename'] = raw_name
     session['import_upload_id'] = upload.id

@@ -1,6 +1,35 @@
 from app.models import db, ChapterRule, Rating
 import math
+import os
 import re
+
+
+def convert_file_to_utf8(src_path, utf8_dir):
+    """将源文件内容转换为 UTF-8 编码，保存到 utf8 目录（文件名与源文件相同）。
+
+    返回转换后文件的绝对路径。
+    """
+    os.makedirs(utf8_dir, exist_ok=True)
+
+    with open(src_path, 'rb') as f:
+        raw = f.read()
+
+    if raw.startswith(b'\xef\xbb\xbf'):
+        text = raw.decode('utf-8-sig')
+    else:
+        try:
+            text = raw.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                text = raw.decode('gb18030')
+            except UnicodeDecodeError:
+                text = raw.decode('utf-8', errors='replace')
+
+    dest_path = os.path.join(utf8_dir, os.path.basename(src_path))
+    with open(dest_path, 'wb') as f:
+        f.write(text.encode('utf-8'))
+
+    return dest_path
 
 
 DEFAULT_RULES = [
