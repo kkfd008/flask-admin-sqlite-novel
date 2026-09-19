@@ -1,6 +1,7 @@
 import os
+import re
 
-from app.utils import convert_file_to_utf8
+from app.utils import convert_file_to_utf8, split_chapters
 
 
 def test_convert_file_to_utf8_preserves_relative_dirs(tmp_path):
@@ -31,3 +32,57 @@ def test_convert_file_to_utf8_falls_back_to_basename_outside_root(tmp_path):
 
     assert dest == str(utf8_dir / 'outside.txt')
     assert os.path.exists(dest)
+
+
+CHAPTER_PATTERN = re.compile(r'^第\d+章.*$', re.MULTILINE)
+
+
+def _make_novel(chapter_count, body_repeat=300):
+    toc = '\n'.join(f'第{i}章 标题{i}' for i in range(1, chapter_count + 1))
+    body = '\n'.join(f'第{i}章 标题{i}\n' + ('正文内容。' * body_repeat)
+                     for i in range(1, chapter_count + 1))
+    return toc, body
+
+
+def test_split_chapters_dedupes_toc_entries():
+    """正文前的章节目录不应被当成章节，避免章节数翻倍。"""
+    toc, body = _make_novel(30)
+    content = '目录\n' + toc + '\n\n' + body
+
+    chapters = split_chapters(content, CHAPTER_PATTERN)
+
+    assert len(chapters) == 30, f'目录条目应被去重，实际得到 {len(chapters)} 章'
+    assert chapters[0][0] == '第1章 标题1'
+    assert '正文内容' in chapters[0][1]
+
+
+def test_split_chapters_keeps_chapters_without_toc():
+    """没有目录时，正常章节不应被误删。"""
+    _, body = _make_novel(5, body_repeat=1)
+
+    chapters = split_chapters(body, CHAPTER_PATTERN)
+
+    assert len(chapters) == 5
+
+
+def test_split_chapters_keeps_real_preface():
+    """真正的序章（有正文）应保留。"""
+    content = '序章\n' + ('这是一段写在正文之前的序言内容。' * 10) + '\n第1章 开始\n内容一'
+
+    chapters = split_chapters(content, CHAPTER_PATTERN)
+
+    assert len(chapters) == 2
+    assert chapters[0][0] == '序章'
+    assert '序言' in chapters[0][1]
+
+
+def test_split_chapters_dedupes_toc_without_preface():
+    """目录前没有“目录”抬头时，同样应去掉重复的目录条目。"""
+    toc, body = _make_novel(20)
+    content = toc + '\n\n' + body
+
+    chapters = split_chapters(content, CHAPTER_PATTERN)
+
+    assert len(chapters) == 20, f'实际得到 {len(chapters)} 章'
+    assert chapters[0][0] == '第1章 标题1'
+

@@ -15,6 +15,8 @@
     上传流程与 web 端一致：直接复制文件 → 写入上传表。
     路径格式: uploads/YYMMDD/源文件所在上级目录名/文件名.txt
 
+    逐本处理：每本书先完成上传，再按 --last-step 完成导入，然后才处理下一本。
+
 示例:
     python batch_upload.py -d ~/novels/
     python batch_upload.py -d ~/novels/ --depth 2 --force --sqlite-db /data/novel.db
@@ -64,6 +66,80 @@ def collect_txt_files(source_dir, depth, ext='.txt'):
     return txt_files
 
 
+def _import_book(upload_id, filepath, raw_name, subdir, last_step):
+    """导入单本图书到书库：拆分章节并写库。
+
+    返回 (是否成功, 描述)；失败时描述为失败原因。
+    """
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    if not content.strip():
+        return False, '文件内容为空'
+
+    # 自动检测最佳章节匹配规则（使用系统规则）
+    best_rule, best_pattern, _ = get_best_pattern(content)
+
+    # 分割章节
+    if best_pattern is None:
+        chapters = split_by_fixed_length(content)
+    else:
+        chapters = split_chapters(content, best_pattern)
+
+    if not chapters:
+        return False, '未识别到章节'
+
+    # 创建或获取分类（以文件所在目录名为分类名）
+    category_id = None
+    if subdir:
+        cat = Category.query.filter_by(name=subdir).first()
+        if not cat:
+            cat = Category(name=subdir, sort_order=0)
+            db.session.add(cat)
+            db.session.flush()
+        category_id = cat.id
+
+    # 创建 Novel（先 flush 获取 id，最终与章节一并提交，保证原子性）
+    novel = Novel(
+        title=raw_name,
+        author='',
+        category_id=category_id,
+    )
+    db.session.add(novel)
+    db.session.flush()
+
+    # 创建 Chapter
+    chapter_order = 0
+    total_word_count = 0
+    for ch_title, ch_content in chapters:
+        chapter_order += 1
+        # last_step=3 只保存章节目录，不保存章节内容
+        ch = Chapter(
+            novel_id=novel.id,
+            title=ch_title,
+            content='' if last_step == 3 else ch_content,
+            order=chapter_order,
+            word_count=len(ch_content),
+        )
+        total_word_count += len(ch_content)
+        db.session.add(ch)
+
+    novel.chapter_count = chapter_order
+    novel.word_count = total_word_count
+
+    # 更新 Upload 的 novel_id（与小说、章节同一事务提交）
+    upload = db.session.get(Upload, upload_id)
+    if upload:
+        upload.novel_id = novel.id
+        upload.last_import_at = datetime.now()
+
+    # 一次提交，保证小说、章节、关联的原子性，避免部分写入
+    db.session.commit()
+
+    rule_name = best_rule.name if best_rule else '固定长度'
+    return True, f'{chapter_order} 章 (规则: {rule_name})'
+
+
 def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=None, ext='.txt', last_step=1):
     if not os.path.isdir(source_dir):
         print(f'错误: 源目录不存在: {source_dir}')
@@ -77,22 +153,30 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
         print(f'未找到 {ext} 文件（深度={depth}）')
         return
 
+    mode_text = ('仅上传' if last_step == 1
+                 else '保存图书和章节目录(不保存内容)' if last_step == 3
+                 else '保存图书、章节目录和章节内容')
     print(f'扫描到 {len(txt_files)} 个 {ext} 文件（深度={depth}）')
     print(f'数据库: {db_path}')
-    print(f'模式: {"仅上传" if last_step == 1 else "保存图书和章节目录(不保存内容)" if last_step == 3 else "保存图书、章节目录和章节内容"}\n')
+    print(f'模式: {mode_text}（逐本处理：一本完成后处理下一本）\n')
 
     app = create_app({
         'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
     })
     with app.app_context():
         db.create_all()
+
     success = []
     failed = []
     overwritten = []
-    # 记录上传成功的文件路径，用于后续导入步骤
-    uploaded = []  # [(upload_id, filepath, raw_name, subdir)]
+    import_success = []
+    import_failed = []
 
     with app.app_context():
+        if last_step >= 3:
+            # 初始化默认规则（确保 get_best_pattern 可用）
+            init_default_rules()
+
         for src_path, subdir in txt_files:
             filename = os.path.basename(src_path)
             raw_name = os.path.splitext(filename)[0]
@@ -101,7 +185,11 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                 original_ext = '.txt'
             saved_filename = raw_name + original_ext
 
+            print(f'\n[{filename}]')
+
             existing = Upload.query.filter_by(title=raw_name).first()
+            # 本书待导入的 (upload_id, utf8 文件路径)；None 表示本次仅上传
+            pending = None
 
             if existing:
                 # 已存在记录对应的绝对路径
@@ -113,14 +201,14 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                         do_overwrite = True
                     elif last_step < 3:
                         failed.append((filename, f'重名且源文件不大于已有文件 ({_format_size(os.path.getsize(src_path))} <= {_format_size(existing.file_size)})'))
-                        print(f'  ✗ {filename} — 跳过（源文件不大于已有文件）')
+                        print('  ✗ 上传跳过（源文件不大于已有文件）')
                         continue
                 elif force:
                     do_overwrite = True
                 else:
                     if last_step < 3:
                         failed.append((filename, '文件重名：上传表中已存在同名记录'))
-                        print(f'  ✗ {filename} — 跳过（重名）')
+                        print('  ✗ 上传跳过（重名）')
                         continue
 
                 if do_overwrite:
@@ -129,60 +217,73 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
                         shutil.copy2(src_path, existing_path)
                     except OSError as e:
                         failed.append((filename, f'文件处理失败: {e}'))
-                        print(f'  ✗ {filename} — 处理失败')
+                        print(f'  ✗ 上传失败: {e}')
                         continue
-                    convert_file_to_utf8(existing_path, UTF8_FOLDER, UPLOAD_FOLDER)
+                    utf8_path = convert_file_to_utf8(existing_path, UTF8_FOLDER, UPLOAD_FOLDER)
                     existing.file_size = os.path.getsize(src_path)
                     existing.updated_at = datetime.now()
                     existing.last_import_at = datetime.now()
                     db.session.commit()
                     overwritten.append(filename)
                     tag = 'force-size' if force_size else 'force'
-                    print(f'  ↻ {filename} — 覆盖更新 ({tag})')
+                    print(f'  ↻ 上传已覆盖 ({tag})')
                 else:
-                    print(f'  ↻ {filename} — 已存在，重新导入')
+                    utf8_path = convert_file_to_utf8(existing_path, UTF8_FOLDER, UPLOAD_FOLDER)
+                    print('  ↻ 上传记录已存在，重新导入')
 
                 if last_step >= 3:
-                    utf8_path = convert_file_to_utf8(existing_path, UTF8_FOLDER, UPLOAD_FOLDER)
-                    uploaded.append((existing.id, utf8_path, raw_name, subdir))
-                continue
-
-            # 新文件：上传到 uploads/YYMMDD/子目录/
-            date_dir = datetime.now().strftime('%y%m%d')
-            if subdir:
-                dest_dir = os.path.join(UPLOAD_FOLDER, date_dir, subdir)
-                rel_dir = os.path.join('uploads', date_dir, subdir)
+                    pending = (existing.id, utf8_path)
             else:
-                dest_dir = os.path.join(UPLOAD_FOLDER, date_dir)
-                rel_dir = os.path.join('uploads', date_dir)
+                # 新文件：上传到 uploads/YYMMDD/子目录/
+                date_dir = datetime.now().strftime('%y%m%d')
+                if subdir:
+                    dest_dir = os.path.join(UPLOAD_FOLDER, date_dir, subdir)
+                    rel_dir = os.path.join('uploads', date_dir, subdir)
+                else:
+                    dest_dir = os.path.join(UPLOAD_FOLDER, date_dir)
+                    rel_dir = os.path.join('uploads', date_dir)
 
-            os.makedirs(dest_dir, exist_ok=True)
-            dest_path = os.path.join(dest_dir, saved_filename)
-            try:
-                shutil.copy2(src_path, dest_path)
-            except OSError as e:
-                failed.append((filename, f'文件复制失败: {e}'))
-                print(f'  ✗ {filename} — 复制失败')
-                continue
+                os.makedirs(dest_dir, exist_ok=True)
+                dest_path = os.path.join(dest_dir, saved_filename)
+                try:
+                    shutil.copy2(src_path, dest_path)
+                except OSError as e:
+                    failed.append((filename, f'文件复制失败: {e}'))
+                    print(f'  ✗ 上传失败: {e}')
+                    continue
 
-            # 转换为 UTF-8 保存到 utf8 目录，供章节分析使用
-            utf8_path = convert_file_to_utf8(dest_path, UTF8_FOLDER, UPLOAD_FOLDER)
+                # 转换为 UTF-8 保存到 utf8 目录，供章节分析使用
+                utf8_path = convert_file_to_utf8(dest_path, UTF8_FOLDER, UPLOAD_FOLDER)
 
-            file_size = os.path.getsize(dest_path)
-            rel_path = os.path.join(rel_dir, saved_filename)
-            upload = Upload(
-                title=raw_name,
-                file_path=rel_path,
-                file_size=file_size,
-            )
-            db.session.add(upload)
-            db.session.commit()
+                rel_path = os.path.join(rel_dir, saved_filename)
+                upload = Upload(
+                    title=raw_name,
+                    file_path=rel_path,
+                    file_size=os.path.getsize(dest_path),
+                )
+                db.session.add(upload)
+                db.session.commit()
 
-            success.append(filename)
-            print(f'  ✓ {filename} → {rel_path}')
+                success.append(filename)
+                print(f'  ✓ 上传成功 → {rel_path}')
 
-            if last_step >= 3:
-                    uploaded.append((upload.id, utf8_path, raw_name, subdir))
+                if last_step >= 3:
+                    pending = (upload.id, utf8_path)
+
+            # 本书上传完成后立即导入，处理完再进入下一本
+            if pending:
+                upload_id, utf8_path = pending
+                try:
+                    ok, detail = _import_book(upload_id, utf8_path, raw_name, subdir, last_step)
+                except Exception as e:
+                    db.session.rollback()
+                    ok, detail = False, str(e)
+                if ok:
+                    import_success.append((raw_name, detail))
+                    print(f'  ✓ 导入书库完成 → {detail}')
+                else:
+                    import_failed.append((raw_name, detail))
+                    print(f'  ✗ 导入书库失败: {detail}')
 
     # 汇总
     print(f'\n{"=" * 50}')
@@ -207,110 +308,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
         for name in success:
             print(f'  ✓ {name}')
 
-    # ---- 步骤 3/4: 导入书库 ----
-    if last_step >= 3 and uploaded:
-        print(f'\n{"=" * 50}')
-        print(f'开始导入书库 ({"生成章节，无内容" if last_step == 3 else "完整导入"}):')
-        print(f'{"=" * 50}')
-
-        import_success = []
-        import_failed = []
-
-        with app.app_context():
-            # 初始化默认规则（确保 get_best_pattern 可用）
-            init_default_rules()
-
-            for upload_id, filepath, raw_name, subdir in uploaded:
-                try:
-                    # 读取文件内容
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        content = f.read()
-
-                    if not content.strip():
-                        import_failed.append((raw_name, '文件内容为空'))
-                        print(f'  ✗ {raw_name} — 文件内容为空')
-                        continue
-
-                    # 自动检测最佳章节匹配规则（使用系统规则）
-                    best_rule, best_pattern, match_count = get_best_pattern(content)
-
-                    # 分割章节
-                    if best_pattern is None:
-                        chapters = split_by_fixed_length(content)
-                    else:
-                        chapters = split_chapters(content, best_pattern)
-
-                    if not chapters:
-                        import_failed.append((raw_name, '未识别到章节'))
-                        print(f'  ✗ {raw_name} — 未识别到章节')
-                        continue
-
-                    # 创建或获取分类（以文件所在目录名为分类名）
-                    category_id = None
-                    if subdir:
-                        cat = Category.query.filter_by(name=subdir).first()
-                        if not cat:
-                            cat = Category(name=subdir, sort_order=0)
-                            db.session.add(cat)
-                            db.session.flush()
-                        category_id = cat.id
-
-                    # 创建 Novel（先 flush 获取 id，最终与章节一并提交，保证原子性）
-                    novel = Novel(
-                        title=raw_name,
-                        author='',
-                        category_id=category_id,
-                    )
-                    db.session.add(novel)
-                    db.session.flush()
-
-                    # 创建 Chapter
-                    chapter_order = 0
-                    total_word_count = 0
-                    for ch_title, ch_content in chapters:
-                        chapter_order += 1
-                        if last_step == 3:
-                            # 不保存内容
-                            ch = Chapter(
-                                novel_id=novel.id,
-                                title=ch_title,
-                                content='',
-                                order=chapter_order,
-                                word_count=len(ch_content),
-                            )
-                        else:
-                            # 完整导入
-                            ch = Chapter(
-                                novel_id=novel.id,
-                                title=ch_title,
-                                content=ch_content,
-                                order=chapter_order,
-                                word_count=len(ch_content),
-                            )
-                        total_word_count += len(ch_content)
-                        db.session.add(ch)
-
-                    novel.chapter_count = chapter_order
-                    novel.word_count = total_word_count
-
-                    # 更新 Upload 的 novel_id（与小说、章节同一事务提交）
-                    upload = db.session.get(Upload, upload_id)
-                    if upload:
-                        upload.novel_id = novel.id
-                        upload.last_import_at = datetime.now()
-
-                    # 一次提交，保证小说、章节、关联的原子性，避免部分写入
-                    db.session.commit()
-
-                    import_success.append((raw_name, chapter_order, best_rule.name if best_rule else '固定长度'))
-                    print(f'  ✓ {raw_name} → {chapter_order} 章 (规则: {best_rule.name if best_rule else "固定长度"})')
-
-                except Exception as e:
-                    db.session.rollback()
-                    import_failed.append((raw_name, str(e)))
-                    print(f'  ✗ {raw_name} — 导入失败: {e}')
-
-        # 导入汇总
+    if last_step >= 3:
         print(f'\n{"=" * 50}')
         print(f'导入完成: 成功 {len(import_success)} / 失败 {len(import_failed)}')
         print(f'{"=" * 50}')
@@ -322,8 +320,8 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
 
         if import_success:
             print('\n导入成功列表:')
-            for name, ch_count, rule_name in import_success:
-                print(f'  ✓ {name} — {ch_count} 章 ({rule_name})')
+            for name, detail in import_success:
+                print(f'  ✓ {name} — {detail}')
 
 
 def _format_size(size):

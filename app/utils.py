@@ -292,7 +292,45 @@ def split_chapters(content, pattern):
         body = chapter_content[len(match.group()):].strip()
         chapters.append((title, body))
 
-    return chapters
+    return _dedupe_toc(chapters)
+
+
+# 目录条目的正文长度上限：正文短于此长度且标题在后面重复出现，即判定为目录条目
+TOC_BODY_MAX_LEN = 30
+
+
+def _dedupe_toc(chapters):
+    """去掉 TXT 文件开头章节目录造成的重复条目。
+
+    部分 TXT 在正文前附有一份章节目录，目录行会被章节规则同样匹配成
+    “正文为空”的章节，导致章节数接近翻倍。这里把「标题在后面重复出现
+    且自身正文极短」的条目判定为目录条目并丢弃。
+    """
+    if len(chapters) < 3:
+        return chapters
+
+    def normalize(title):
+        return re.sub(r'\s+', '', title)
+
+    # 每个标题最后一次出现的下标
+    last_index = {}
+    for i, (title, _) in enumerate(chapters):
+        last_index[normalize(title)] = i
+
+    kept = []
+    dropped = 0
+    for i, (title, body) in enumerate(chapters):
+        is_duplicate = last_index[normalize(title)] != i
+        if is_duplicate and len(body.strip()) < TOC_BODY_MAX_LEN:
+            dropped += 1
+            continue
+        kept.append((title, body))
+
+    # 目录块前常有一行“目录”抬头，会被切成正文极短的“序章”，一并去掉
+    if dropped >= 2 and kept and kept[0][0] == '序章' and len(kept[0][1].strip()) < TOC_BODY_MAX_LEN:
+        kept.pop(0)
+
+    return kept
 
 
 def split_by_fixed_length(content, max_len=10000):
