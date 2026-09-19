@@ -3,9 +3,12 @@
 
 {% block content %}
 <div class="page-header">
-  <div>
-    <h1>小说上传列表</h1>
-    <p>管理已上传的小说文件</p>
+  <div class="flex-between" style="flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>小说上传列表</h1>
+      <p>管理已上传的小说文件</p>
+    </div>
+    <a href="{{ url_for('importer.step1') }}" class="btn btn-primary btn-sm">导入</a>
   </div>
 </div>
 
