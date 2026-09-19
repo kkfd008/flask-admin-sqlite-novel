@@ -14,6 +14,13 @@
   <input type="hidden" name="sort_by" value="{{ request.args.get('sort_by', 'created_at') }}">
   <input type="hidden" name="sort_order" value="{{ request.args.get('sort_order', 'desc') }}">
 
+  <!-- Mobile Search -->
+  <div class="mobile-search-row">
+    <input type="search" name="q" class="form-input mobile-search-input"
+           placeholder="搜索书名或作者" value="{{ request.args.get('q', '') }}">
+    <button type="submit" class="btn btn-primary btn-sm mobile-search-btn">搜索</button>
+  </div>
+
   <div class="chip-section">
     <span class="chip-section-label">分类</span>
     <div class="chip-scroll">
@@ -41,12 +48,13 @@
       <option value="title" {% if request.args.get('sort_by')=='title' %}selected{% endif %}>按标题</option>
       <option value="user_rating" {% if request.args.get('sort_by')=='user_rating' %}selected{% endif %}>按评分</option>
       <option value="word_count" {% if request.args.get('sort_by')=='word_count' %}selected{% endif %}>按字数</option>
+      <option value="chapter_count" {% if request.args.get('sort_by')=='chapter_count' %}selected{% endif %}>按章节数量</option>
     </select>
     <select name="sort_order_display" class="form-select mobile-sort-select" onchange="syncSortOrder(this)">
       <option value="desc" {% if request.args.get('sort_order','desc')=='desc' %}selected{% endif %}>降序</option>
       <option value="asc" {% if request.args.get('sort_order')=='asc' %}selected{% endif %}>升序</option>
     </select>
-    {% if request.args.get('category_id') or request.args.get('tag_id') %}
+    {% if request.args.get('category_id') or request.args.get('tag_id') or request.args.get('q') %}
     <a href="{{ url_for('novels.list') }}" class="btn btn-secondary btn-xs mobile-clear-btn">清除</a>
     {% endif %}
   </div>
@@ -56,6 +64,9 @@
 <div class="toolbar desktop-toolbar">
   <div class="toolbar-left">
     <form method="get" class="search-bar" style="margin-bottom:0;">
+      <input type="search" name="q" class="form-input" style="width:auto;"
+             placeholder="搜索书名或作者" value="{{ request.args.get('q', '') }}">
+      <button type="submit" class="btn btn-primary btn-sm">搜索</button>
       <select name="category_id" class="form-select" style="width:auto;" onchange="this.form.submit()">
         <option value="">全部分类</option>
         {% for cat in categories %}
@@ -73,12 +84,13 @@
         <option value="title" {% if request.args.get('sort_by')=='title' %}selected{% endif %}>按标题</option>
         <option value="user_rating" {% if request.args.get('sort_by')=='user_rating' %}selected{% endif %}>按评分</option>
         <option value="word_count" {% if request.args.get('sort_by')=='word_count' %}selected{% endif %}>按字数</option>
+        <option value="chapter_count" {% if request.args.get('sort_by')=='chapter_count' %}selected{% endif %}>按章节数量</option>
       </select>
       <select name="sort_order" class="form-select" style="width:auto;" onchange="this.form.submit()">
         <option value="desc" {% if request.args.get('sort_order','desc')=='desc' %}selected{% endif %}>降序</option>
         <option value="asc" {% if request.args.get('sort_order')=='asc' %}selected{% endif %}>升序</option>
       </select>
-      {% if request.args.get('category_id') or request.args.get('tag_id') %}
+      {% if request.args.get('category_id') or request.args.get('tag_id') or request.args.get('q') %}
       <a href="{{ url_for('novels.list') }}" class="btn btn-secondary btn-sm">清除筛选</a>
       {% endif %}
     </form>
@@ -209,6 +221,26 @@
   color: #fff;
   border-color: var(--accent);
   font-weight: 600;
+}
+
+/* Mobile Search Row */
+.mobile-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  min-height: 36px;
+}
+
+.mobile-search-btn {
+  flex-shrink: 0;
+  min-height: 36px;
 }
 
 /* Mobile Sort Row */

@@ -171,3 +171,71 @@ class TestNovelEdit:
             assert novel.title == '新书名'
             assert novel.author == '新作者'
             assert novel.category_id is None, f'分类应为空，实际: {novel.category_id}'
+
+
+class TestNovelSearchAndSort:
+    def _seed_novels(self, app):
+        """创建 3 本书：标题、作者、章节数各不相同，便于验证搜索与排序"""
+        with app.app_context():
+            from app.models import db, User, Novel
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            db.session.add_all([
+                Novel(title='剑来', author='烽火戏诸侯', chapter_count=10),
+                Novel(title='雪中悍刀行', author='烽火戏诸侯', chapter_count=30),
+                Novel(title='三体', author='刘慈欣', chapter_count=20),
+            ])
+            db.session.commit()
+
+    def test_search_by_title_filters_results(self, app, client):
+        """按书名搜索时，只显示匹配的书"""
+        self._seed_novels(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/?q=三体')
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '三体' in html, '匹配的书名应显示'
+        assert '雪中悍刀行' not in html, '不匹配的书不应显示'
+
+    def test_search_by_author_filters_results(self, app, client):
+        """按作者搜索时，只显示该作者的书"""
+        self._seed_novels(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/?q=刘慈欣')
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        assert '三体' in html, '该作者的书应显示'
+        assert '雪中悍刀行' not in html, '其他作者的书不应显示'
+
+    def test_sort_by_chapter_count_desc(self, app, client):
+        """按章节数降序：章节数多的书排在前面"""
+        self._seed_novels(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/?sort_by=chapter_count&sort_order=desc')
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        pos_most = html.find('雪中悍刀行')   # 30 章
+        pos_least = html.find('剑来')        # 10 章
+        assert pos_most != -1 and pos_least != -1, '两本书都应显示'
+        assert pos_most < pos_least, '章节数多的书应排在前面'
+
+    def test_sort_by_chapter_count_asc(self, app, client):
+        """按章节数升序：章节数少的书排在前面"""
+        self._seed_novels(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        response = client.get('/novels/?sort_by=chapter_count&sort_order=asc')
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+
+        pos_least = html.find('剑来')        # 10 章
+        pos_most = html.find('雪中悍刀行')   # 30 章
+        assert pos_least != -1 and pos_most != -1, '两本书都应显示'
+        assert pos_least < pos_most, '章节数少的书应排在前面'

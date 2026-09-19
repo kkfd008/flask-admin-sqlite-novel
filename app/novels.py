@@ -11,6 +11,7 @@ novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
 def list():
     category_id = request.args.get('category_id')
     tag_id = request.args.get('tag_id')
+    q = (request.args.get('q') or '').strip()
     sort_by = request.args.get('sort_by', 'created_at')
     sort_order = request.args.get('sort_order', 'desc')
     
@@ -21,6 +22,10 @@ def list():
     
     if tag_id:
         query = query.join(Novel.tags).filter(Tag.id == tag_id)
+    
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Novel.title.ilike(like), Novel.author.ilike(like)))
     
     sort_column = getattr(Novel, sort_by, Novel.created_at)
     if sort_order == 'desc':
