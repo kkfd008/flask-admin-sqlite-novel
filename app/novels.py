@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from app.models import db, Novel, Chapter, Category, Tag, NovelChapterRule, Favorite, Rating, Bookmark, ReadingProgress, Upload
 from app.auth import login_required
 from app.utils import utf8_path_for
+from io import BytesIO
 import os
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
@@ -110,6 +111,20 @@ def chapter_directory(id):
 
     return render_template('novels/chapters.html', novel=novel, pagination=pagination,
                           per_page=per_page, page=page, upload=upload)
+
+
+@novels_bp.route('/<int:id>/chapter/download')
+@login_required
+def download_chapters(id):
+    novel = Novel.query.get_or_404(id)
+    chapters = Chapter.query.filter_by(novel_id=id).order_by(Chapter.order).all()
+
+    # 按「标题 + 正文」合并全书，输出 UTF-8 文本供本地保存
+    content = '\n'.join(f'{ch.title}\n\n{ch.content or ""}\n' for ch in chapters)
+    buffer = BytesIO(content.encode('utf-8'))
+
+    return send_file(buffer, as_attachment=True, download_name=f'{novel.title}.txt',
+                     mimetype='text/plain; charset=utf-8')
 
 
 @novels_bp.route('/<int:id>/edit', methods=['POST'])

@@ -293,3 +293,60 @@ class TestChapterPerPageRememberedInSession:
         assert 'class="active">20</a>' in html
         assert '第20章' in html
         assert '第21章' not in html, '默认每页 20 行，第 21 章应在第二页'
+
+
+class TestChapterDirectoryDownload:
+    """章节目录页：把「章节标题 + 章节内容」合并成一个 UTF-8 txt 下载。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, Novel, Chapter
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            novel = Novel(title='下载测试', chapter_count=3, word_count=0)
+            db.session.add(novel)
+            db.session.commit()
+            for i in range(1, 4):
+                db.session.add(Chapter(novel_id=novel.id, title=f'第{i}章',
+                                       content=f'内容{i}', order=i, word_count=3))
+            db.session.commit()
+            return novel.id
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_download_returns_merged_utf8_txt(self, app, client):
+        """下载内容应为按章节顺序合并的 UTF-8 文本。"""
+        novel_id = self._seed(app)
+        self._login(client)
+
+        response = client.get(f'/novels/{novel_id}/chapter/download')
+
+        assert response.status_code == 200
+        assert 'attachment' in response.headers['Content-Disposition'], '应作为附件下载'
+        assert '.txt' in response.headers['Content-Disposition']
+
+        # 能用 utf-8 解码即说明是 UTF-8 编码
+        text = response.data.decode('utf-8')
+        assert '第1章' in text and '内容1' in text
+        assert '第3章' in text and '内容3' in text
+        assert text.index('第1章') < text.index('内容1') < text.index('第2章') < text.index('第3章'), \
+            '内容应按章节顺序：标题在前、正文在后'
+
+    def test_download_button_shown_on_directory_page(self, app, client):
+        """章节目录页应显示下载按钮。"""
+        novel_id = self._seed(app)
+        self._login(client)
+
+        html = client.get(f'/novels/{novel_id}/chapter').data.decode('utf-8')
+
+        assert f'/novels/{novel_id}/chapter/download' in html, '目录页应有下载入口'
+
+    def test_download_requires_login(self, app, client):
+        """未登录时下载应被拦截。"""
+        novel_id = self._seed(app)
+
+        response = client.get(f'/novels/{novel_id}/chapter/download', follow_redirects=False)
+
+        assert response.status_code == 302, '未登录应跳转到登录页'

@@ -29,6 +29,13 @@
 }
 .page-header .novel-link:hover { text-decoration: underline; }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* --- Per-page selector --- */
 .per-page-bar {
   display: flex;
@@ -203,9 +210,12 @@
 <div class="page-header">
   <div class="header-top">
     <h1>目录</h1>
-    {% if upload %}
-    <a href="{{ url_for('importer.reimport', upload_id=upload.id) }}" class="btn btn-secondary btn-sm">重新导入</a>
-    {% endif %}
+    <div class="header-actions">
+      <a href="{{ url_for('novels.download_chapters', id=novel.id) }}" class="btn btn-secondary btn-sm">下载</a>
+      {% if upload %}
+      <a href="{{ url_for('importer.reimport', upload_id=upload.id) }}" class="btn btn-secondary btn-sm">重新导入</a>
+      {% endif %}
+    </div>
   </div>
   <a href="{{ url_for('novels.detail', id=novel.id) }}" class="novel-link">{{ novel.title }}</a>
 </div>
