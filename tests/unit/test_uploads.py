@@ -961,3 +961,57 @@ class TestUploadsSearchAndSort:
         pos_more = html.find('雪中悍刀行')
         assert pos_less != -1 and pos_more != -1
         assert pos_less < pos_more
+
+
+class TestUploadsSortRememberedInSession:
+    """上传列表页的排序选择用 session 记忆，并回显在下拉框中。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            db.session.add_all([
+                Upload(title='小文件书', file_path='uploads/1/小文件书.txt', file_size=100),
+                Upload(title='大文件书', file_path='uploads/1/大文件书.txt', file_size=5000),
+            ])
+            db.session.commit()
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_sort_selection_is_remembered(self, app, client):
+        """不带参数再次访问时，下拉框应回显上次的选择。"""
+        self._seed(app)
+        self._login(client)
+
+        client.get('/novels/uploads?sort_by=file_size&sort_order=asc')
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        assert 'value="file_size" selected' in html, '排序下拉应回显上次选择'
+        assert 'value="asc" selected' in html, '升降序下拉应回显上次选择'
+
+    def test_remembered_sort_is_applied(self, app, client):
+        """不带参数再次访问时，应按记忆的排序呈现结果。"""
+        self._seed(app)
+        self._login(client)
+
+        client.get('/novels/uploads?sort_by=file_size&sort_order=asc')
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        pos_small = html.find('小文件书')
+        pos_large = html.find('大文件书')
+        assert pos_small != -1 and pos_large != -1
+        assert pos_small < pos_large, '应沿用记忆的按文件大小升序'
+
+    def test_sort_memory_is_per_page(self, app, client):
+        """书架页的排序记忆不应影响上传列表页。"""
+        self._seed(app)
+        self._login(client)
+
+        client.get('/novels/?sort_by=word_count&sort_order=asc')
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        assert 'value="created_at" selected' in html, '上传列表页应仍为默认排序'
+        assert 'value="word_count" selected' not in html, '不应套用书架页的排序记忆'

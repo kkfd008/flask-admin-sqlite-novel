@@ -12,8 +12,11 @@ def list():
     category_id = request.args.get('category_id')
     tag_id = request.args.get('tag_id')
     q = (request.args.get('q') or '').strip()
-    sort_by = request.args.get('sort_by', 'created_at')
-    sort_order = request.args.get('sort_order', 'desc')
+    # 排序选择记入 session，下次不带参数访问时沿用上次的选择
+    sort_by = request.args.get('sort_by') or session.get('novels_sort_by') or 'created_at'
+    sort_order = request.args.get('sort_order') or session.get('novels_sort_order') or 'desc'
+    session['novels_sort_by'] = sort_by
+    session['novels_sort_order'] = sort_order
     
     query = Novel.query
     
@@ -37,7 +40,8 @@ def list():
     categories = Category.query.all()
     tags = Tag.query.all()
     
-    return render_template('novels/list.html', novels=novels, categories=categories, tags=tags)
+    return render_template('novels/list.html', novels=novels, categories=categories, tags=tags,
+                           sort_by=sort_by, sort_order=sort_order)
 
 
 @novels_bp.route('/<int:id>')
@@ -181,8 +185,11 @@ def uploads():
     page = request.args.get('page', 1, type=int)
     per_page = 10
     q = (request.args.get('q') or '').strip()
-    sort_by = request.args.get('sort_by', 'created_at')
-    sort_order = request.args.get('sort_order', 'desc')
+    # 排序选择记入 session，下次不带参数访问时沿用上次的选择
+    sort_by = request.args.get('sort_by') or session.get('uploads_sort_by') or 'created_at'
+    sort_order = request.args.get('sort_order') or session.get('uploads_sort_order') or 'desc'
+    session['uploads_sort_by'] = sort_by
+    session['uploads_sort_order'] = sort_order
 
     query = Upload.query
 

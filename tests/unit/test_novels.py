@@ -239,3 +239,60 @@ class TestNovelSearchAndSort:
         pos_most = html.find('雪中悍刀行')   # 30 章
         assert pos_least != -1 and pos_most != -1, '两本书都应显示'
         assert pos_least < pos_most, '章节数少的书应排在前面'
+
+
+class TestSortRememberedInSession:
+    """书架页的排序选择用 session 记忆，并回显在下拉框中。"""
+
+    def _seed_novels(self, app):
+        with app.app_context():
+            from app.models import db, User, Novel
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            db.session.add_all([
+                Novel(title='甲书', word_count=300),
+                Novel(title='乙书', word_count=100),
+                Novel(title='丙书', word_count=200),
+            ])
+            db.session.commit()
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_sort_selection_is_remembered(self, app, client):
+        """不带参数再次访问时，下拉框应回显上次的选择。"""
+        self._seed_novels(app)
+        self._login(client)
+
+        client.get('/novels/?sort_by=word_count&sort_order=asc')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert 'value="word_count" selected' in html, '排序下拉应回显上次选择'
+        assert 'value="asc" selected' in html, '升降序下拉应回显上次选择'
+
+    def test_remembered_sort_is_applied(self, app, client):
+        """不带参数再次访问时，应按记忆的排序呈现结果。"""
+        self._seed_novels(app)
+        self._login(client)
+
+        client.get('/novels/?sort_by=word_count&sort_order=asc')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        pos_yi = html.find('乙书')    # 100 字
+        pos_bing = html.find('丙书')  # 200 字
+        pos_jia = html.find('甲书')   # 300 字
+        assert pos_yi != -1 and pos_bing != -1 and pos_jia != -1, '三本书都应显示'
+        assert pos_yi < pos_bing < pos_jia, '应沿用记忆的按字数升序'
+
+    def test_explicit_param_overrides_remembered_sort(self, app, client):
+        """显式传入排序参数时应覆盖记忆值。"""
+        self._seed_novels(app)
+        self._login(client)
+
+        client.get('/novels/?sort_by=word_count&sort_order=asc')
+        html = client.get('/novels/?sort_by=title&sort_order=desc').data.decode('utf-8')
+
+        assert 'value="title" selected' in html
+        assert 'value="desc" selected' in html
+        assert 'value="word_count" selected' not in html
