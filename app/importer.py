@@ -12,6 +12,28 @@ importer_bp = Blueprint('importer', __name__, url_prefix='/novels/import')
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
 UTF8_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utf8')
 
+# 手动选择规则时的优先级，数值越大越优先：自定义/用户 > 增强 > 系统
+RULE_PRIORITY = {'用户': 3, '增强': 2, '系统': 1}
+
+
+def _pick_manual_rules(custom_pattern, rules):
+    """按「自定义 > 增强 > 系统」优先级挑选手动规则，只保留最高一级。
+
+    - 填写了自定义正则：只用它，勾选的规则一律不生效
+    - 勾选了更高一级的规则：低一级的规则失效（如勾选增强则系统失效）
+    返回 (patterns, rule_ids)。
+    """
+    custom_pattern = (custom_pattern or '').strip()
+    if custom_pattern:
+        return [custom_pattern], []
+
+    if not rules:
+        return [], []
+
+    top = max(RULE_PRIORITY.get(rule.category, 0) for rule in rules)
+    picked = [rule for rule in rules if RULE_PRIORITY.get(rule.category, 0) == top]
+    return [rule.pattern for rule in picked], [str(rule.id) for rule in picked]
+
 
 @importer_bp.route('', methods=['GET', 'POST'])
 @login_required
@@ -236,20 +258,19 @@ def step2():
                 session['import_detected_rule'] = best_rule.name if best_rule else '未知'
                 session['import_fallback'] = False
         else:
-            # 手动选择规则
-            rule_ids = request.form.getlist('rule_ids')
-            custom_pattern = request.form.get('custom_pattern')
+            # 手动选择规则：自定义 > 增强 > 系统，只生效最高一级
+            selected = []
+            for rid in request.form.getlist('rule_ids'):
+                if not rid:
+                    continue
+                try:
+                    rule = db.session.get(ChapterRule, int(rid))
+                except (TypeError, ValueError):
+                    rule = None
+                if rule:
+                    selected.append(rule)
 
-            patterns = []
-            if custom_pattern:
-                patterns.append(custom_pattern)
-            if rule_ids:
-                for rid in rule_ids:
-                    if rid:
-                        rule = ChapterRule.query.get(int(rid))
-                        if rule:
-                            patterns.append(rule.pattern)
-
+            patterns, rule_ids = _pick_manual_rules(request.form.get('custom_pattern'), selected)
             if not patterns:
                 patterns = [DEFAULT_RULES[0]['pattern']]
 

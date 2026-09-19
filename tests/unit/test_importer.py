@@ -721,3 +721,96 @@ class TestReimportOverwritesExistingNovel:
             rows = Chapter.query.filter_by(novel_id=novel_id).count()
             assert rows == 3, f'旧章节应被替换，实际共 {rows} 章'
             assert novel.chapter_count == 3
+
+
+class TestManualRulePriority:
+    """手动选择规则时的优先级：自定义 > 增强 > 系统（只生效最高一级）。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, ChapterRule
+            user = User(username='admin', password='admin123')
+            rules = {
+                '系统': ChapterRule(name='系统第N章', pattern='^第\\d+章.*$',
+                                    category='系统', enabled=True, sort_order=0),
+                '增强': ChapterRule(name='增强方括号章', pattern='^【第\\d+章】.*$',
+                                    category='增强', enabled=True, sort_order=1),
+                '用户': ChapterRule(name='用户星号章', pattern='^★.*$',
+                                    category='用户', enabled=True, sort_order=2),
+            }
+            db.session.add(user)
+            db.session.add_all(list(rules.values()))
+            db.session.commit()
+            return {key: rule.id for key, rule in rules.items()}
+
+    def _import_with_rules(self, app, client, content, filename, title,
+                           rule_ids=None, custom_pattern=None):
+        """手动模式导入，返回入库后的章节标题列表。"""
+        data = {'file': (io.BytesIO(content.encode('utf-8')), filename)}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+
+        form = {'mode': 'manual'}
+        if rule_ids:
+            form['rule_ids'] = [str(rid) for rid in rule_ids]
+        if custom_pattern:
+            form['custom_pattern'] = custom_pattern
+        client.post('/novels/import/step2', data=form, follow_redirects=True)
+        client.post('/novels/import/step4', data={'title': title, 'author': ''}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Novel, Chapter
+            novel = Novel.query.filter_by(title=title).first()
+            assert novel is not None, '导入应成功建书'
+            return [c.title for c in
+                    Chapter.query.filter_by(novel_id=novel.id).order_by(Chapter.order).all()]
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_custom_pattern_wins_over_checked_rules(self, app, client):
+        """填写了自定义正则时，只用自定义正则，勾选的系统规则不生效。"""
+        ids = self._seed(app)
+        self._login(client)
+
+        content = '第1章 甲\n内容甲\n第2章 乙\n内容乙'
+        titles = self._import_with_rules(
+            app, client, content, '自定义优先.txt', '自定义优先',
+            rule_ids=[ids['系统']], custom_pattern='^第1章.*$')
+
+        assert titles == ['第1章 甲'], f'应只用自定义规则，实际 {titles}'
+
+    def test_enhanced_rule_disables_system_rules(self, app, client):
+        """勾选增强规则后，系统规则失效。"""
+        ids = self._seed(app)
+        self._login(client)
+
+        content = '【第1章】甲\n内容甲\n第2章 乙\n内容乙'
+        titles = self._import_with_rules(
+            app, client, content, '增强优先.txt', '增强优先',
+            rule_ids=[ids['系统'], ids['增强']])
+
+        assert titles == ['【第1章】甲'], f'勾选增强规则后系统规则应失效，实际 {titles}'
+
+    def test_user_rule_wins_over_enhanced_rule(self, app, client):
+        """自定义（用户规则）优先于增强规则。"""
+        ids = self._seed(app)
+        self._login(client)
+
+        content = '★第一章\n内容甲\n【第2章】乙\n内容乙'
+        titles = self._import_with_rules(
+            app, client, content, '用户优先.txt', '用户优先',
+            rule_ids=[ids['增强'], ids['用户']])
+
+        assert titles == ['★第一章'], f'用户规则应优先于增强规则，实际 {titles}'
+
+    def test_system_rules_used_when_no_higher_tier(self, app, client):
+        """未填写自定义、未勾选增强时，使用勾选的系统规则。"""
+        ids = self._seed(app)
+        self._login(client)
+
+        content = '第1章 甲\n内容甲\n第2章 乙\n内容乙'
+        titles = self._import_with_rules(
+            app, client, content, '系统兜底.txt', '系统兜底',
+            rule_ids=[ids['系统']])
+
+        assert titles == ['第1章 甲', '第2章 乙'], f'实际 {titles}'
