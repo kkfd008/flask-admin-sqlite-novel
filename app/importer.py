@@ -35,6 +35,27 @@ def _pick_manual_rules(custom_pattern, rules):
     return [rule.pattern for rule in picked], [str(rule.id) for rule in picked]
 
 
+def _save_novel_custom_rule(novel_id, pattern):
+    """把导入时填写的自定义规则保存到书籍（已有则更新）。"""
+    rule = NovelChapterRule.query.filter_by(novel_id=novel_id).first()
+    if rule:
+        rule.pattern = pattern
+    else:
+        db.session.add(NovelChapterRule(novel_id=novel_id, pattern=pattern))
+
+
+def _saved_custom_pattern():
+    """重新导入时，回填该书已保存的自定义规则。"""
+    upload_id = session.get('import_upload_id')
+    if not upload_id:
+        return ''
+    upload = db.session.get(Upload, upload_id)
+    if not upload or not upload.novel_id:
+        return ''
+    rule = NovelChapterRule.query.filter_by(novel_id=upload.novel_id).first()
+    return rule.pattern if rule else ''
+
+
 @importer_bp.route('', methods=['GET', 'POST'])
 @login_required
 def step1():
@@ -146,6 +167,8 @@ def step1():
             return redirect(url_for('novels.uploads'))
 
         session['import_original_filename'] = raw_name
+        # 新的导入流程开始，清掉上一次残留的自定义规则
+        session.pop('import_custom_pattern', None)
 
         # 上传文件转换为 UTF-8 后保存到 utf8 目录，供章节分析读取
         session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER, UPLOAD_FOLDER)
@@ -171,6 +194,8 @@ def reimport(upload_id):
     session['import_filename'] = raw_name
     session['import_original_filename'] = raw_name
     session['import_upload_id'] = upload.id
+    # 重新导入会回填该书已保存的自定义规则，清掉上次流程的残留值
+    session.pop('import_custom_pattern', None)
 
     return redirect(url_for('importer.step2'))
 
@@ -200,6 +225,11 @@ def _save_novel_toc():
 
     novel.chapter_count = order
     novel.word_count = total_words
+
+    custom_pattern = (session.get('import_custom_pattern') or '').strip()
+    if custom_pattern:
+        _save_novel_custom_rule(novel.id, custom_pattern)
+
     db.session.commit()
 
     upload_id = session.get('import_upload_id')
@@ -220,6 +250,7 @@ def _save_novel_toc():
     session.pop('import_rule_ids', None)
     session.pop('import_fallback', None)
     session.pop('import_detected_rule', None)
+    session.pop('import_custom_pattern', None)
 
     # 保存后返回上传列表页
     return redirect(url_for('novels.uploads'))
@@ -271,6 +302,7 @@ def step2():
                     selected.append(rule)
 
             patterns, rule_ids = _pick_manual_rules(request.form.get('custom_pattern'), selected)
+            session['import_custom_pattern'] = (request.form.get('custom_pattern') or '').strip()
             if not patterns:
                 patterns = [DEFAULT_RULES[0]['pattern']]
 
@@ -302,7 +334,8 @@ def step2():
     return render_template('import/step2.html',
                            system_rules=system_rules,
                            user_rules=user_rules,
-                           enhanced_rules=enhanced_rules)
+                           enhanced_rules=enhanced_rules,
+                           custom_pattern=session.get('import_custom_pattern') or _saved_custom_pattern())
 
 
 @importer_bp.route('/step3', methods=['GET', 'POST'])
@@ -386,6 +419,11 @@ def step4():
         novel.chapter_count = chapter_order
         novel.word_count = sum(len(ch_data['content']) for ch_data in chapters)
 
+        # 导入时填写的自定义规则保存到该书，供下次重新导入回填
+        custom_pattern = (session.get('import_custom_pattern') or '').strip()
+        if custom_pattern:
+            _save_novel_custom_rule(novel.id, custom_pattern)
+
         if upload:
             upload.novel_id = novel.id
             upload.last_import_at = datetime.now()
@@ -402,6 +440,7 @@ def step4():
         session.pop('import_rule_ids', None)
         session.pop('import_fallback', None)
         session.pop('import_detected_rule', None)
+        session.pop('import_custom_pattern', None)
 
         return redirect(url_for('novels.detail', id=novel.id))
 

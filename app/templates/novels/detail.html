@@ -688,6 +688,16 @@
       <span class="info-value">{{ novel.chapter_count }} 章</span>
     </div>
     <div class="info-row">
+      <span class="info-label">自定义规则</span>
+      <span class="info-value">
+        {% if novel.chapter_rule %}
+        <code style="font-size:0.8rem; word-break:break-all;">{{ novel.chapter_rule.pattern }}</code>
+        {% else %}
+        <span class="text-muted">未设置</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="info-row">
       <span class="info-label">添加时间</span>
       <span class="info-value">{{ novel.created_at.strftime('%Y-%m-%d') if novel.created_at else '-' }}</span>
     </div>

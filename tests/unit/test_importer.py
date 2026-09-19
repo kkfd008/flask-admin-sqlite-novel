@@ -814,3 +814,131 @@ class TestManualRulePriority:
             rule_ids=[ids['系统']])
 
         assert titles == ['第1章 甲', '第2章 乙'], f'实际 {titles}'
+
+
+CUSTOM_PATTERN = '^第1章.*$'
+
+
+class TestNovelCustomRule:
+    """自定义章节规则保存到书籍，重新导入自动回填，详情页展示。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, ChapterRule
+            user = User(username='admin', password='admin123')
+            rule = ChapterRule(name='系统第N章', pattern='^第\\d+章.*$',
+                               category='系统', enabled=True, sort_order=0)
+            db.session.add_all([user, rule])
+            db.session.commit()
+            return rule.id
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def _import_with_custom_rule(self, app, client, title='自定义规则书', filename='自定义规则书.txt'):
+        """用自定义正则导入一本书，返回 (upload_id, novel_id)。"""
+        content = '第1章 甲\n内容甲\n第2章 乙\n内容乙'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), filename)}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        client.post('/novels/import/step2', data={
+            'mode': 'manual', 'custom_pattern': CUSTOM_PATTERN,
+        }, follow_redirects=True)
+        client.post('/novels/import/step4', data={'title': title, 'author': ''}, follow_redirects=True)
+
+        with app.app_context():
+            from app.models import Upload, Novel
+            novel = Novel.query.filter_by(title=title).first()
+            upload = Upload.query.filter_by(title=filename.rsplit('.', 1)[0]).first()
+            assert novel is not None and upload is not None
+            return upload.id, novel.id
+
+    def test_custom_pattern_saved_to_novel(self, app, client):
+        """导入时填写的自定义规则应保存到对应书籍。"""
+        self._seed(app)
+        self._login(client)
+
+        _, novel_id = self._import_with_custom_rule(app, client)
+
+        with app.app_context():
+            from app.models import NovelChapterRule
+            rule = NovelChapterRule.query.filter_by(novel_id=novel_id).first()
+            assert rule is not None, '书籍应保存自定义规则'
+            assert rule.pattern == CUSTOM_PATTERN
+
+    def test_reimport_prefills_custom_pattern(self, app, client):
+        """重新导入时，自定义规则输入框应自动回填已保存的规则。"""
+        self._seed(app)
+        self._login(client)
+
+        upload_id, _ = self._import_with_custom_rule(app, client, title='回填测试', filename='回填测试.txt')
+
+        html = client.get(f'/novels/import/reimport/{upload_id}', follow_redirects=True).data.decode('utf-8')
+
+        assert f'name="custom_pattern"' in html, 'step2 应有自定义规则输入框'
+        assert f'value="{CUSTOM_PATTERN}"' in html, '自定义规则应自动回填'
+
+    def test_detail_page_shows_custom_rule(self, app, client):
+        """书籍详情页应展示自定义规则信息。"""
+        self._seed(app)
+        self._login(client)
+
+        _, novel_id = self._import_with_custom_rule(app, client, title='详情展示', filename='详情展示.txt')
+
+        html = client.get(f'/novels/{novel_id}').data.decode('utf-8')
+
+        assert '自定义规则' in html, '详情页应展示自定义规则'
+        assert CUSTOM_PATTERN in html, '详情页应展示规则内容'
+
+
+class TestStep2RuleLayout:
+    """step2 区块顺序：自定义规则 > 用户规则 > 增强规则 > 系统规则，增强规则为单选下拉。"""
+
+    def _seed(self, app):
+        with app.app_context():
+            from app.models import db, User, ChapterRule
+            user = User(username='admin', password='admin123')
+            rules = {
+                '系统': ChapterRule(name='系统第N章', pattern='^第\\d+章.*$',
+                                    category='系统', enabled=True, sort_order=0),
+                '增强': ChapterRule(name='增强方括号章', pattern='^【第\\d+章】.*$',
+                                    category='增强', enabled=True, sort_order=1),
+                '用户': ChapterRule(name='用户星号章', pattern='^★.*$',
+                                    category='用户', enabled=True, sort_order=2),
+            }
+            db.session.add(user)
+            db.session.add_all(list(rules.values()))
+            db.session.commit()
+            return {key: rule.id for key, rule in rules.items()}
+
+    def _open_step2(self, client):
+        content = '第1章 甲\n内容甲\n第2章 乙\n内容乙'
+        data = {'file': (io.BytesIO(content.encode('utf-8')), '布局测试.txt')}
+        client.post('/novels/import', data=data, content_type='multipart/form-data', follow_redirects=True)
+        return client.get('/novels/import/step2').data.decode('utf-8')
+
+    def test_section_order(self, app, client):
+        """自定义规则在最前，其后依次是用户规则、增强规则、系统规则。"""
+        self._seed(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        html = self._open_step2(client)
+
+        pos_custom = html.find('data-rule-section="custom"')
+        pos_user = html.find('data-rule-section="user"')
+        pos_enhanced = html.find('data-rule-section="enhanced"')
+        pos_system = html.find('data-rule-section="system"')
+        assert -1 not in (pos_custom, pos_user, pos_enhanced, pos_system), \
+            f'四个区块都应存在: {pos_custom}, {pos_user}, {pos_enhanced}, {pos_system}'
+        assert pos_custom < pos_user < pos_enhanced < pos_system, '区块顺序应为 自定义 > 用户 > 增强 > 系统'
+
+    def test_enhanced_rules_is_single_select(self, app, client):
+        """增强规则应渲染为单选下拉，默认空，且不再是复选框。"""
+        ids = self._seed(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        html = self._open_step2(client)
+
+        assert f'<option value="{ids["增强"]}">' in html, '增强规则应作为下拉选项'
+        assert f'name="rule_ids" value="{ids["增强"]}"' not in html, '增强规则不应再渲染成复选框'
+        assert '<option value="">' in html or 'value="">不使用' in html, '下拉应有空默认项'
+

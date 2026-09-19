@@ -126,8 +126,58 @@
       生效优先级：<strong style="color:var(--text-secondary);">自定义正则 &gt; 增强规则 &gt; 系统规则</strong>（只生效最高一级）。<br>
       填写了自定义正则后，勾选的规则不再生效；勾选了增强规则后，系统规则失效。
     </div>
-    <!-- 系统规则 -->
-    <div class="mb-3">
+
+    <!-- 1. 自定义规则 -->
+    <div class="mb-3" data-rule-section="custom">
+      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+        <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">自定义</span>
+        自定义规则（优先级最高，填写后勾选的规则均不生效）
+      </h4>
+      <div class="form-group">
+        <label class="form-label" for="custom_pattern">自定义正则表达式</label>
+        <input class="form-input" type="text" name="custom_pattern" id="custom_pattern"
+               value="{{ custom_pattern or '' }}"
+               placeholder="例如：^第[零一二三四五六七八九十百千]+章">
+      </div>
+    </div>
+
+    <!-- 2. 增加规则（用户自建规则） -->
+    {% if user_rules %}
+    <div class="mb-3" data-rule-section="user">
+      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+        <span class="badge badge-outline">用户</span>
+        用户规则（可选 0-3 个）
+      </h4>
+      <div class="rule-list-container">
+        {% for rule in user_rules[:4] %}
+        <label class="rule-item" style="color:var(--text-primary);">
+          <input type="checkbox" name="rule_ids" value="{{ rule.id }}" style="accent-color:var(--accent);" class="user-rule-cb">
+          <span class="rule-name">{{ rule.name }}</span>
+          <code class="rule-pattern">{{ rule.pattern }}</code>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 3. 增强规则（下拉单选） -->
+    {% if enhanced_rules %}
+    <div class="mb-3" data-rule-section="enhanced">
+      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+        <span class="badge" style="background:#6C63FF; color:#fff; border-color:#6C63FF;">增强</span>
+        增强规则（Legado，默认不使用，只能选 1 个）
+      </h4>
+      <select name="rule_ids" class="form-select">
+        <option value="">不使用</option>
+        {% for rule in enhanced_rules %}
+        <option value="{{ rule.id }}">{{ rule.name }} — {{ rule.pattern }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <!-- 4. 系统规则 -->
+    <div class="mb-3" data-rule-section="system">
       <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
         <span class="badge" style="background:var(--accent); color:#fff; border-color:var(--accent);">系统</span>
         系统规则（全部显示，启用规则默认勾选）
@@ -148,50 +198,6 @@
       {% else %}
       <p class="text-muted" style="font-size:0.85rem;">暂无系统规则</p>
       {% endif %}
-    </div>
-
-    <!-- 增强规则 -->
-    {% if enhanced_rules %}
-    <div class="mb-3">
-      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
-        <span class="badge" style="background:#6C63FF; color:#fff; border-color:#6C63FF;">增强</span>
-        增强规则（Legado，可选 0-3 个）
-      </h4>
-      <div class="rule-list-container">
-        {% for rule in enhanced_rules %}
-        <label class="rule-item" style="color:var(--text-primary);">
-          <input type="checkbox" name="rule_ids" value="{{ rule.id }}" style="accent-color:var(--accent);" class="user-rule-cb">
-          <span class="rule-name">{{ rule.name }}</span>
-          <code class="rule-pattern">{{ rule.pattern }}</code>
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- 自定义规则 -->
-    {% if user_rules %}
-    <div class="mb-3">
-      <h4 style="font-family:var(--font-display); font-size:0.95rem; margin-bottom:12px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
-        <span class="badge badge-outline">用户</span>
-        用户规则（可选 0-3 个）
-      </h4>
-      <div class="rule-list-container">
-        {% for rule in user_rules[:4] %}
-        <label class="rule-item" style="color:var(--text-primary);">
-          <input type="checkbox" name="rule_ids" value="{{ rule.id }}" style="accent-color:var(--accent);" class="user-rule-cb">
-          <span class="rule-name">{{ rule.name }}</span>
-          <code class="rule-pattern">{{ rule.pattern }}</code>
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <div style="text-align:center; color:var(--text-muted); margin:8px 0; font-size:0.85rem;">— 或者 —</div>
-    <div class="form-group">
-      <label class="form-label" for="custom_pattern">自定义正则表达式</label>
-      <input class="form-input" type="text" name="custom_pattern" id="custom_pattern" placeholder="例如：^第[零一二三四五六七八九十百千]+章">
     </div>
     </div>
 
