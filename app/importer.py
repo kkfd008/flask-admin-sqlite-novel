@@ -111,18 +111,23 @@ def step1():
             db.session.commit()
             session['import_upload_id'] = upload.id
 
-        session['import_original_filename'] = raw_name
-
-        # 上传文件转换为 UTF-8 后保存到 utf8 目录，供章节分析读取
-        session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER)
-        session['import_filename'] = raw_name
-
         # 清理临时文件
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
         session.pop('import_temp_file', None)
         session.pop('import_temp_raw_name', None)
         session.pop('import_temp_filename', None)
+
+        # 仅上传：只保存文件并返回上传列表，不进入章节分析
+        action = request.form.get('action', 'import')
+        if action == 'upload_only':
+            return redirect(url_for('novels.uploads'))
+
+        session['import_original_filename'] = raw_name
+
+        # 上传文件转换为 UTF-8 后保存到 utf8 目录，供章节分析读取
+        session['import_filepath'] = convert_file_to_utf8(filepath, UTF8_FOLDER)
+        session['import_filename'] = raw_name
 
         return redirect(url_for('importer.step2'))
 
@@ -148,6 +153,56 @@ def reimport(upload_id):
     return redirect(url_for('importer.step2'))
 
 
+def _save_novel_toc():
+    """保存图书和章节目录（不保存章节内容）到书架，并关联上传记录。"""
+    chapters = session.get('import_chapters', [])
+    title = session.get('import_filename', 'Untitled')
+
+    novel = Novel(title=title, author=None, category_id=None)
+    db.session.add(novel)
+    db.session.flush()
+
+    order = 0
+    total_words = 0
+    for ch_data in chapters:
+        order += 1
+        ch = Chapter(
+            novel_id=novel.id,
+            title=ch_data['title'],
+            content='',  # 不保存章节内容
+            order=order,
+            word_count=len(ch_data['content']),
+        )
+        total_words += len(ch_data['content'])
+        db.session.add(ch)
+
+    novel.chapter_count = order
+    novel.word_count = total_words
+    db.session.commit()
+
+    upload_id = session.get('import_upload_id')
+    if upload_id:
+        upload = db.session.get(Upload, upload_id)
+        if upload:
+            upload.novel_id = novel.id
+            upload.last_import_at = datetime.now()
+            db.session.commit()
+
+    # 清理会话
+    session.pop('import_filepath', None)
+    session.pop('import_filename', None)
+    session.pop('import_original_filename', None)
+    session.pop('import_upload_id', None)
+    session.pop('import_pattern', None)
+    session.pop('import_chapters', None)
+    session.pop('import_rule_ids', None)
+    session.pop('import_fallback', None)
+    session.pop('import_detected_rule', None)
+    session.pop('import_detected_count', None)
+
+    return redirect(url_for('novels.detail', id=novel.id))
+
+
 @importer_bp.route('/step2', methods=['GET', 'POST'])
 @login_required
 def step2():
@@ -170,16 +225,15 @@ def step2():
             best_rule, best_pattern, match_count = get_best_pattern(content)
 
             if best_pattern is None:
-                # 未找到合适规则，使用固定长度兜底
+                # 未找到合适规则，使用固定长度兜底（继续走后续分割与操作判断）
                 session['import_fallback'] = True
                 session['import_chapter_count'] = 0
-                return redirect(url_for('importer.step3'))
-
-            session['import_rule_ids'] = [str(best_rule.id)] if best_rule else []
-            session['import_pattern'] = best_pattern.pattern if best_pattern else ''
-            session['import_detected_rule'] = best_rule.name if best_rule else '未知'
-            session['import_detected_count'] = match_count
-            session['import_fallback'] = False
+            else:
+                session['import_rule_ids'] = [str(best_rule.id)] if best_rule else []
+                session['import_pattern'] = best_pattern.pattern if best_pattern else ''
+                session['import_detected_rule'] = best_rule.name if best_rule else '未知'
+                session['import_detected_count'] = match_count
+                session['import_fallback'] = False
         else:
             # 手动选择规则
             rule_ids = request.form.getlist('rule_ids')
@@ -220,6 +274,11 @@ def step2():
 
             results = split_chapters(content, compiled)
             session['import_chapters'] = [{'title': t, 'content': c} for t, c in results]
+
+        # 保存章节目录：直接入库（不保存章节内容），跳过第三步预览
+        action = request.form.get('action', 'next')
+        if action == 'save_toc':
+            return _save_novel_toc()
 
         return redirect(url_for('importer.step3'))
 

@@ -193,7 +193,8 @@
       <input class="form-input step1-file-input" type="file" name="file" id="fileInput" accept=".txt" required>
     </div>
     <div class="step1-actions">
-      <button type="submit" class="btn btn-primary">上传</button>
+      <button type="submit" name="action" value="upload_only" class="btn btn-secondary">仅上传</button>
+      <button type="submit" name="action" value="import" class="btn btn-primary">上传</button>
     </div>
   </form>
   {% endif %}

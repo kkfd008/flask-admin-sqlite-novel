@@ -10,7 +10,7 @@
     --force-size      只有源文件 size 大于目标文件 size 时才强制覆盖
     --sqlite-db PATH  指定 SQLite 数据库文件路径，默认 instance/novel.db
     -t, --type EXT    指定上传文件后缀，默认 .txt（如 -t .epub）
-    --last-step N     1=仅上传（默认）, 3=上传+生成章节(无内容), 4=上传+完整导入
+    --last-step N     1=仅上传（默认）, 3=保存图书和章节目录(不保存内容), 4=保存图书、章节目录和章节内容
 
     上传流程与 web 端一致：直接复制文件 → 写入上传表。
     路径格式: uploads/YYMMDD/源文件所在上级目录名/文件名.txt
@@ -79,7 +79,7 @@ def batch_upload(source_dir, depth=1, force=False, force_size=False, db_path=Non
 
     print(f'扫描到 {len(txt_files)} 个 {ext} 文件（深度={depth}）')
     print(f'数据库: {db_path}')
-    print(f'模式: {"仅上传" if last_step == 1 else "上传+生成章节(无内容)" if last_step == 3 else "上传+完整导入"}\n')
+    print(f'模式: {"仅上传" if last_step == 1 else "保存图书和章节目录(不保存内容)" if last_step == 3 else "保存图书、章节目录和章节内容"}\n')
 
     app = create_app({
         'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
@@ -343,7 +343,7 @@ if __name__ == '__main__':
     parser.add_argument('--sqlite-db', default=None, help='SQLite 数据库文件路径，默认 instance/novel.db')
     parser.add_argument('-t', '--type', default='.txt', help='指定上传文件后缀，默认 .txt')
     parser.add_argument('--last-step', type=int, default=1, choices=[1, 3, 4],
-                        help='1=仅上传(默认), 3=上传+生成章节(无内容), 4=上传+完整导入')
+                        help='1=仅上传(默认), 3=保存图书和章节目录(不保存内容), 4=保存图书、章节目录和章节内容')
     args = parser.parse_args()
 
     batch_upload(
