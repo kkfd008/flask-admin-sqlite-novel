@@ -5,6 +5,20 @@ import os
 
 novels_bp = Blueprint('novels', __name__, url_prefix='/novels')
 
+# 各列表页可选的每页行数
+PER_PAGE_OPTIONS = (10, 20, 50, 100)
+
+
+def _resolve_per_page(session_key, default):
+    """解析每页行数：URL 参数优先，其次上次记忆，最后默认值；并写回 session。"""
+    per_page = request.args.get('per_page', type=int)
+    if per_page not in PER_PAGE_OPTIONS:
+        per_page = session.get(session_key)
+    if per_page not in PER_PAGE_OPTIONS:
+        per_page = default
+    session[session_key] = per_page
+    return per_page
+
 
 @novels_bp.route('/')
 @login_required
@@ -12,36 +26,39 @@ def list():
     category_id = request.args.get('category_id')
     tag_id = request.args.get('tag_id')
     q = (request.args.get('q') or '').strip()
+    page = request.args.get('page', 1, type=int)
     # 排序选择记入 session，下次不带参数访问时沿用上次的选择
     sort_by = request.args.get('sort_by') or session.get('novels_sort_by') or 'created_at'
     sort_order = request.args.get('sort_order') or session.get('novels_sort_order') or 'desc'
     session['novels_sort_by'] = sort_by
     session['novels_sort_order'] = sort_order
-    
+    # 每页行数同样记入 session
+    per_page = _resolve_per_page('novels_per_page', 20)
+
     query = Novel.query
-    
+
     if category_id:
         query = query.filter_by(category_id=category_id)
-    
+
     if tag_id:
         query = query.join(Novel.tags).filter(Tag.id == tag_id)
-    
+
     if q:
         like = f'%{q}%'
         query = query.filter(db.or_(Novel.title.ilike(like), Novel.author.ilike(like)))
-    
+
     sort_column = getattr(Novel, sort_by, Novel.created_at)
     if sort_order == 'desc':
         query = query.order_by(sort_column.desc())
     else:
         query = query.order_by(sort_column.asc())
-    
-    novels = query.all()
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     categories = Category.query.all()
     tags = Tag.query.all()
-    
-    return render_template('novels/list.html', novels=novels, categories=categories, tags=tags,
-                           sort_by=sort_by, sort_order=sort_order)
+
+    return render_template('novels/list.html', pagination=pagination, categories=categories, tags=tags,
+                           sort_by=sort_by, sort_order=sort_order, per_page=per_page)
 
 
 @novels_bp.route('/<int:id>')
@@ -64,10 +81,8 @@ def detail(id):
 def chapter_directory(id):
     novel = Novel.query.get_or_404(id)
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    # 允许的每页选项
-    if per_page not in (10, 20, 50, 100):
-        per_page = 20
+    # 每页行数记入 session，下次访问沿用上次的选择
+    per_page = _resolve_per_page('chapters_per_page', 20)
 
     pagination = Chapter.query.filter_by(novel_id=id)\
         .order_by(Chapter.order)\
@@ -183,7 +198,8 @@ def rules_delete(id, rule_id):
 @login_required
 def uploads():
     page = request.args.get('page', 1, type=int)
-    per_page = 10
+    # 每页行数记入 session，下次访问沿用上次的选择
+    per_page = _resolve_per_page('uploads_per_page', 10)
     q = (request.args.get('q') or '').strip()
     # 排序选择记入 session，下次不带参数访问时沿用上次的选择
     sort_by = request.args.get('sort_by') or session.get('uploads_sort_by') or 'created_at'
@@ -223,7 +239,7 @@ def uploads():
         chapter_counts = dict(rows)
 
     return render_template('novels/uploads.html', pagination=pagination, q=q,
-                           sort_by=sort_by, sort_order=sort_order,
+                           sort_by=sort_by, sort_order=sort_order, per_page=per_page,
                            chapter_counts=chapter_counts)
 
 

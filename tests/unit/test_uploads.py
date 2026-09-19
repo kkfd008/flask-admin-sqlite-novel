@@ -1015,3 +1015,65 @@ class TestUploadsSortRememberedInSession:
         html = client.get('/novels/uploads').data.decode('utf-8')
         assert 'value="created_at" selected' in html, '上传列表页应仍为默认排序'
         assert 'value="word_count" selected' not in html, '不应套用书架页的排序记忆'
+
+
+class TestUploadsPerPageRememberedInSession:
+    """上传列表页的每页行数选择用 session 记忆，并回显在下拉框中。"""
+
+    def _seed(self, app, count):
+        with app.app_context():
+            from app.models import db, User, Upload
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            db.session.add_all([
+                Upload(title=f'书{i:02d}', file_path=f'uploads/1/书{i:02d}.txt', file_size=i)
+                for i in range(1, count + 1)
+            ])
+            db.session.commit()
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_per_page_selection_is_remembered(self, app, client):
+        """不带参数再次访问时，每页行数下拉框应回显上次的选择。"""
+        self._seed(app, count=3)
+        self._login(client)
+
+        client.get('/novels/uploads?per_page=20')
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        assert 'value="20" selected' in html, '每页行数下拉框应回显上次选择'
+
+    def test_remembered_per_page_is_applied(self, app, client):
+        """不带参数再次访问时，应按记忆的每页行数分页。"""
+        self._seed(app, count=25)
+        self._login(client)
+
+        client.get('/novels/uploads?per_page=20&sort_by=title&sort_order=asc')
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        assert '共 25 条' in html
+        assert '书01' in html, '第一页的记录应显示'
+        assert '书25' not in html, '超过每页行数的记录不应出现在第一页'
+
+    def test_default_per_page_is_10(self, app, client):
+        """未选择时默认每页 10 行。"""
+        self._seed(app, count=25)
+        self._login(client)
+
+        html = client.get('/novels/uploads?sort_by=title&sort_order=asc').data.decode('utf-8')
+        assert 'value="10" selected' in html
+        assert '书10' in html
+        assert '书11' not in html, '默认每页 10 行，第 11 条应在第二页'
+
+    def test_per_page_memory_is_per_page(self, app, client):
+        """书架页的每页行数记忆不应影响上传列表页。"""
+        self._seed(app, count=3)
+        self._login(client)
+
+        client.get('/novels/?per_page=50')
+
+        html = client.get('/novels/uploads').data.decode('utf-8')
+        assert 'value="10" selected' in html, '上传列表页应仍为默认每页 10 行'
+        assert 'value="50" selected' not in html, '不应套用书架页的每页行数记忆'

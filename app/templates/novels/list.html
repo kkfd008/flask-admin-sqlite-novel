@@ -13,6 +13,7 @@
   <input type="hidden" name="tag_id" value="{{ request.args.get('tag_id', '') }}">
   <input type="hidden" name="sort_by" value="{{ sort_by }}">
   <input type="hidden" name="sort_order" value="{{ sort_order }}">
+  <input type="hidden" name="per_page" value="{{ per_page }}">
 
   <!-- Mobile Search -->
   <div class="mobile-search-row">
@@ -54,6 +55,11 @@
       <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>降序</option>
       <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>升序</option>
     </select>
+    <select name="per_page_display" class="form-select mobile-sort-select" onchange="syncPerPage(this)">
+      {% for n in [10, 20, 50, 100] %}
+      <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>每页 {{ n }}</option>
+      {% endfor %}
+    </select>
     {% if request.args.get('category_id') or request.args.get('tag_id') or request.args.get('q') %}
     <a href="{{ url_for('novels.list') }}" class="btn btn-secondary btn-xs mobile-clear-btn">清除</a>
     {% endif %}
@@ -90,6 +96,11 @@
         <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>降序</option>
         <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>升序</option>
       </select>
+      <select name="per_page" class="form-select" style="width:auto;" onchange="this.form.submit()">
+        {% for n in [10, 20, 50, 100] %}
+        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>每页 {{ n }}</option>
+        {% endfor %}
+      </select>
       {% if request.args.get('category_id') or request.args.get('tag_id') or request.args.get('q') %}
       <a href="{{ url_for('novels.list') }}" class="btn btn-secondary btn-sm">清除筛选</a>
       {% endif %}
@@ -100,13 +111,13 @@
 <!-- Page Header -->
 <div class="page-header">
   <h1>书架</h1>
-  <p>共 {{ novels|length }} 部作品</p>
+  <p>共 {{ pagination.total }} 部作品</p>
 </div>
 
-{% if novels %}
+{% if pagination.items %}
 <!-- Novel Cards -->
 <div class="novel-grid">
-  {% for novel in novels %}
+  {% for novel in pagination.items %}
   <a href="{{ url_for('novels.detail', id=novel.id) }}" class="novel-card">
     <div class="novel-card-top">
       <h3 class="novel-card-title">{{ novel.title }}</h3>
@@ -144,6 +155,23 @@
   </a>
   {% endfor %}
 </div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="pagination-nav">
+  {% if pagination.has_prev %}
+  <a href="{{ url_for('novels.list', page=pagination.prev_num, q=request.args.get('q') or none, category_id=request.args.get('category_id') or none, tag_id=request.args.get('tag_id') or none, sort_by=sort_by, sort_order=sort_order, per_page=per_page) }}" class="btn btn-sm btn-secondary">上一页</a>
+  {% else %}
+  <span class="btn btn-sm btn-secondary disabled">上一页</span>
+  {% endif %}
+  <span class="text-muted">第 {{ pagination.page }} / {{ pagination.pages }} 页</span>
+  {% if pagination.has_next %}
+  <a href="{{ url_for('novels.list', page=pagination.next_num, q=request.args.get('q') or none, category_id=request.args.get('category_id') or none, tag_id=request.args.get('tag_id') or none, sort_by=sort_by, sort_order=sort_order, per_page=per_page) }}" class="btn btn-sm btn-secondary">下一页</a>
+  {% else %}
+  <span class="btn btn-sm btn-secondary disabled">下一页</span>
+  {% endif %}
+</div>
+{% endif %}
 {% else %}
 <div class="empty-state">
   <div class="icon">📚</div>
@@ -391,6 +419,22 @@
 }
 
 /* ============================================
+   Pagination
+   ============================================ */
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.pagination-nav .disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ============================================
    Responsive Breakpoints
    ============================================ */
 
@@ -512,6 +556,12 @@ function syncSort(select) {
 function syncSortOrder(select) {
   var form = document.getElementById('filter-form');
   form.querySelector('input[name="sort_order"]').value = select.value;
+  form.submit();
+}
+
+function syncPerPage(select) {
+  var form = document.getElementById('filter-form');
+  form.querySelector('input[name="per_page"]').value = select.value;
   form.submit();
 }
 </script>

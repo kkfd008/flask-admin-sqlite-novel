@@ -296,3 +296,53 @@ class TestSortRememberedInSession:
         assert 'value="title" selected' in html
         assert 'value="desc" selected' in html
         assert 'value="word_count" selected' not in html
+
+
+class TestNovelsPerPageRememberedInSession:
+    """书架页的每页行数选择用 session 记忆，并回显在下拉框中。"""
+
+    def _seed_novels(self, app, count):
+        with app.app_context():
+            from app.models import db, User, Novel
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            db.session.add_all([
+                Novel(title=f'书{i:02d}', chapter_count=i) for i in range(1, count + 1)
+            ])
+            db.session.commit()
+
+    def _login(self, client):
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+    def test_per_page_selection_is_remembered(self, app, client):
+        """不带参数再次访问时，每页行数下拉框应回显上次的选择。"""
+        self._seed_novels(app, count=3)
+        self._login(client)
+
+        client.get('/novels/?per_page=10')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert 'value="10" selected' in html, '每页行数下拉框应回显上次选择'
+
+    def test_remembered_per_page_is_applied(self, app, client):
+        """不带参数再次访问时，应按记忆的每页行数分页。"""
+        self._seed_novels(app, count=25)
+        self._login(client)
+
+        client.get('/novels/?per_page=10&sort_by=title&sort_order=asc')
+
+        html = client.get('/novels/').data.decode('utf-8')
+        assert '共 25 部作品' in html
+        assert '书01' in html, '第一页的书应显示'
+        assert '书25' not in html, '超过每页行数的书不应出现在第一页'
+
+    def test_default_per_page_is_20(self, app, client):
+        """未选择时默认每页 20 行。"""
+        self._seed_novels(app, count=25)
+        self._login(client)
+
+        html = client.get('/novels/?sort_by=title&sort_order=asc').data.decode('utf-8')
+        assert 'value="20" selected' in html
+        assert '书20' in html
+        assert '书21' not in html, '默认每页 20 行，第 21 本应在第二页'

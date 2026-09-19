@@ -252,3 +252,44 @@ class TestChapterDirectoryReimportButton:
         html = client.get(f'/novels/{novel_id}/chapter').data.decode('utf-8')
 
         assert '重新导入' not in html, '上传表无记录时不应显示重新导入按钮'
+
+
+class TestChapterPerPageRememberedInSession:
+    """章节目录页的每页行数选择用 session 记忆，并回显在选项上。"""
+
+    def _seed(self, app, count=55):
+        with app.app_context():
+            from app.models import db, User, Novel, Chapter
+            user = User(username='admin', password='admin123')
+            db.session.add(user)
+            db.session.commit()
+            novel = Novel(title='每页记忆', chapter_count=count, word_count=0)
+            db.session.add(novel)
+            db.session.commit()
+            for i in range(1, count + 1):
+                db.session.add(Chapter(novel_id=novel.id, title=f'第{i}章',
+                                       content=f'内容{i}', order=i, word_count=3))
+            db.session.commit()
+            return novel.id
+
+    def test_per_page_selection_is_remembered_and_applied(self, app, client):
+        """不带参数再次访问时，应沿用上次选择的每页行数。"""
+        novel_id = self._seed(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        client.get(f'/novels/{novel_id}/chapter?per_page=50')
+
+        html = client.get(f'/novels/{novel_id}/chapter').data.decode('utf-8')
+        assert 'class="active">50</a>' in html, '每页行数选项应回显上次选择'
+        assert '第50章' in html
+        assert '第51章' not in html, '应按记忆的每页 50 行分页'
+
+    def test_default_per_page_is_20(self, app, client):
+        """未选择时默认每页 20 行。"""
+        novel_id = self._seed(app)
+        client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+
+        html = client.get(f'/novels/{novel_id}/chapter').data.decode('utf-8')
+        assert 'class="active">20</a>' in html
+        assert '第20章' in html
+        assert '第21章' not in html, '默认每页 20 行，第 21 章应在第二页'
